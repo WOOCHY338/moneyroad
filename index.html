@@ -694,11 +694,23 @@ function googleSetupGuide(){
     <p style="color:var(--sub);font-size:13px;margin:10px 0 12px;line-height:1.85">
       구글 로그인은 <b style="color:var(--txt)">계정 소유자만</b> 발급할 수 있는 클라이언트 ID가 필요합니다.
       아래 4단계는 한 번만 하면 되고, 마지막에 ID를 여기 붙여넣으면 바로 켜집니다.</p>
-    <div style="font-size:12.5px;line-height:2.05;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
-      1. <b>console.cloud.google.com</b> 접속 후 프로젝트 생성<br>
-      2. <b>API 및 서비스 → OAuth 동의 화면</b>에서 앱 이름만 채우고 저장<br>
-      3. <b>사용자 인증 정보 → 만들기 → OAuth 클라이언트 ID → 웹 애플리케이션</b><br>
-      4. <b>승인된 JavaScript 원본</b>에 아래 주소를 그대로 추가
+    <div style="font-size:12.5px;line-height:1.95;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
+      <div style="margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid var(--line);color:var(--sub);font-size:11.5px">
+        콘솔이 영어로 보이면 주소 끝에 <b style="color:var(--gold)">?hl=ko</b> 를 붙이세요 →
+        <a href="https://console.cloud.google.com/?hl=ko" target="_blank" rel="noopener"
+           style="color:var(--mint);font-weight:700">한국어로 콘솔 열기</a><br>
+        아래 괄호는 영어 화면에서 찾을 메뉴 이름입니다.
+      </div>
+      1. 프로젝트 만들기 <span style="color:var(--sub)">(New Project)</span><br>
+      2. <b>API 및 서비스</b> <span style="color:var(--sub)">(APIs &amp; Services)</span> →
+         <b>OAuth 동의 화면</b> <span style="color:var(--sub)">(OAuth consent screen)</span><br>
+      &nbsp;&nbsp;&nbsp;앱 이름·이메일 입력, 대상은 <b>외부</b> <span style="color:var(--sub)">(External)</span><br>
+      3. <b>사용자 인증 정보</b> <span style="color:var(--sub)">(Credentials)</span> →
+         <b>만들기</b> <span style="color:var(--sub)">(Create credentials)</span> →
+         <b>OAuth 클라이언트 ID</b> <span style="color:var(--sub)">(OAuth client ID)</span> →
+         <b>웹 애플리케이션</b> <span style="color:var(--sub)">(Web application)</span><br>
+      4. <b>승인된 JavaScript 원본</b> <span style="color:var(--sub)">(Authorized JavaScript origins)</span>
+         에 아래 주소를 그대로 추가
       <div style="margin:7px 0 2px;display:flex;gap:6px;align-items:center">
         <code id="originTxt" style="flex:1;background:#131d33;border:1px solid var(--line);border-radius:7px;
           padding:8px 10px;font-size:12.5px;color:var(--gold);word-break:break-all">${esc(origin)}</code>

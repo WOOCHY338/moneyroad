@@ -59,14 +59,15 @@ input{font-family:inherit}
   position:relative;overflow:hidden;transition:border-color .15s}
 .ad:hover{border-color:var(--gold)}
 .ad .aico{font-size:27px;flex:0 0 auto}
-.ad .atx{text-align:left;min-width:0;flex:1}
-.ad .ah{font-size:13.5px;font-weight:800;line-height:1.35}
-.ad .as{font-size:11.5px;color:var(--sub);margin-top:2px;line-height:1.4}
+.ad .atx{display:block;text-align:left;min-width:0;flex:1}
+.ad .ah{display:block;font-size:13.5px;font-weight:800;line-height:1.35}
+.ad .as{display:block;font-size:11.5px;color:var(--sub);margin-top:2px;line-height:1.4}
 .ad .acta{flex:0 0 auto;background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#2a1a00;
   padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:900;white-space:nowrap}
 .ad .alabel{position:absolute;top:0;right:0;background:#27354f;color:#9fb3d8;font-size:9px;font-weight:800;
   padding:2px 6px;border-bottom-left-radius:7px;letter-spacing:.5px}
 @media(max-width:560px){.ad .as{display:none}.ad .acta{padding:7px 10px;font-size:11.5px}}
+@media(prefers-reduced-motion:reduce){.ticker .track{animation:none}.reel.spin{animation:none}}
 body{padding-bottom:78px}
 .logo{text-align:center}
 .logo h1{
@@ -198,7 +199,7 @@ tr:last-child td{border-bottom:none}
 .big-btn{width:100%;padding:14px;border-radius:12px;font-weight:900;font-size:16px;background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#2a1a00}
 .ghost-btn{width:100%;padding:12px;border-radius:12px;font-weight:800;font-size:14px;background:var(--panel2);border:1px solid var(--line);margin-top:8px}
 
-#flash{position:fixed;left:50%;transform:translateX(-50%) translateY(-150%);top:14px;z-index:300;
+#flash{position:fixed;left:50%;transform:translateX(-50%) translateY(-150%);top:86px;z-index:300;
   background:linear-gradient(135deg,#ff2d4d,#b8102b);padding:11px 18px;border-radius:13px;max-width:92vw;
   box-shadow:0 12px 40px rgba(255,45,77,.4);transition:transform .45s cubic-bezier(.2,1.4,.4,1);font-weight:800;font-size:13.5px}
 #flash.show{transform:translateX(-50%) translateY(0)}

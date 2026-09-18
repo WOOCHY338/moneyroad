@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>머니로드 : 주식 인생역전</title>
+<style>
+:root{
+  --bg:#070a12; --panel:#121a2c; --panel2:#182238;
+  --line:#22304d; --txt:#e8eefc; --sub:#8fa1c4;
+  --up:#ff4d5e; --down:#4d8cff; --gold:#ffc93c; --mint:#22e6b4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 700px at 50% -10%,#16203a 0%,var(--bg) 60%);
+  color:var(--txt);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  min-height:100vh;overflow-x:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;color:inherit}
+input{font-family:inherit}
+.screen{display:none}
+.screen.on{display:block}
+
+/* ===== 슬롯 선택 ===== */
+#select{min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:30px 16px}
+#select.on{display:flex}
+
+/* ===== 로그인 ===== */
+#login{min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:30px 16px}
+#login.on{display:flex}
+.loginbox{background:linear-gradient(160deg,var(--panel),#0e1526);border:1px solid var(--line);border-radius:20px;
+  padding:26px 24px;width:100%;max-width:400px;margin-top:30px;text-align:center}
+.loginbox h2{font-size:17px;margin-bottom:6px}
+.loginbox p{font-size:12.5px;color:var(--sub);line-height:1.8;margin-bottom:18px}
+.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;
+  padding:13px;border-radius:11px;font-weight:800;font-size:15px;border:1px solid #dadce0}
+.gbtn:hover{background:#f1f3f4}
+.gbtn svg{width:19px;height:19px;flex:0 0 19px}
+.guestbtn{width:100%;margin-top:10px;padding:13px;border-radius:11px;font-weight:800;font-size:15px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+.guestbtn:hover{border-color:var(--mint);color:var(--mint)}
+.logindiv{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--sub);font-size:11px}
+.logindiv::before,.logindiv::after{content:'';flex:1;height:1px;background:var(--line)}
+.loginnote{font-size:11px;color:#6b7c9e;margin-top:16px;line-height:1.75}
+.profile{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:99px;padding:6px 6px 6px 14px;margin-bottom:4px}
+.profile img{width:30px;height:30px;border-radius:50%;background:var(--panel2)}
+.profile .pn{font-size:13.5px;font-weight:800}
+.profile .pe{font-size:10.5px;color:var(--sub)}
+.profile button{background:var(--panel2);border:1px solid var(--line);padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700}
+.profile button:hover{border-color:var(--up);color:var(--up)}
+
+/* ===== 배너 광고 ===== */
+.adbar{width:100%;background:#0c1220;border-bottom:1px solid var(--line);display:flex;justify-content:center;padding:7px 12px}
+.adbar.bottom{position:fixed;bottom:0;left:0;z-index:120;border-bottom:none;border-top:1px solid var(--line);
+  padding-bottom:calc(7px + env(safe-area-inset-bottom,0px));background:rgba(12,18,32,.97);backdrop-filter:blur(8px)}
+.ad{width:100%;max-width:728px;min-height:58px;display:flex;align-items:center;gap:12px;cursor:pointer;
+  background:linear-gradient(100deg,#16203a,#101a2e);border:1px solid #27354f;border-radius:11px;padding:9px 13px;
+  position:relative;overflow:hidden;transition:border-color .15s}
+.ad:hover{border-color:var(--gold)}
+.ad .aico{font-size:27px;flex:0 0 auto}
+.ad .atx{text-align:left;min-width:0;flex:1}
+.ad .ah{font-size:13.5px;font-weight:800;line-height:1.35}
+.ad .as{font-size:11.5px;color:var(--sub);margin-top:2px;line-height:1.4}
+.ad .acta{flex:0 0 auto;background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#2a1a00;
+  padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:900;white-space:nowrap}
+.ad .alabel{position:absolute;top:0;right:0;background:#27354f;color:#9fb3d8;font-size:9px;font-weight:800;
+  padding:2px 6px;border-bottom-left-radius:7px;letter-spacing:.5px}
+@media(max-width:560px){.ad .as{display:none}.ad .acta{padding:7px 10px;font-size:11.5px}}
+body{padding-bottom:78px}
+.logo{text-align:center}
+.logo h1{
+  font-size:clamp(34px,7vw,66px);font-weight:900;letter-spacing:-2px;
+  background:linear-gradient(100deg,#ffc93c,#ff4d5e 40%,#a878ff 70%,#22e6b4);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.logo p{color:var(--sub);font-size:13px;margin-top:8px;letter-spacing:4px}
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:980px;width:100%;margin-top:32px}
+@media(max-width:760px){.slots{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:460px){.slots{grid-template-columns:1fr}}
+.slot{
+  background:linear-gradient(160deg,var(--panel),#0e1526);border:1px solid var(--line);
+  border-radius:16px;padding:16px;min-height:162px;position:relative;
+  transition:.18s;display:flex;flex-direction:column;
+}
+.slot:hover{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 12px 34px rgba(255,201,60,.13)}
+.slot .no{font-size:11px;color:var(--sub);letter-spacing:2px;font-weight:700}
+.slot .nm{font-size:21px;font-weight:800;margin:8px 0 3px}
+.slot .money{font-size:15px;color:var(--gold);font-weight:800}
+.slot .meta{font-size:11.5px;color:var(--sub);margin-top:5px;line-height:1.7}
+.slot .acts{margin-top:auto;display:flex;gap:8px;padding-top:12px}
+.slot button{flex:1;padding:9px;border-radius:9px;font-weight:800;font-size:13px}
+.b-go{background:linear-gradient(135deg,#ffc93c,#ff8a3c);color:#2a1a00}
+.b-new{background:linear-gradient(135deg,var(--mint),#12b48c);color:#00251b}
+.b-del{flex:0 0 44px!important;background:#2a1220;color:#ff7d8c}
+.slot.empty .nm{color:#54648a}
+.rank{position:absolute;top:13px;right:13px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;background:#1d2840;color:var(--sub)}
+.rank.r1{background:linear-gradient(135deg,#ffd75e,#ff9d2e);color:#3a2400}
+.tip{margin-top:26px;color:var(--sub);font-size:12.5px;text-align:center;line-height:1.95;max-width:740px}
+.tip b{color:var(--mint)}
+
+/* ===== 게임 ===== */
+#game{padding-bottom:40px}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(9,13,22,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.tb-in{max-width:1180px;margin:0 auto;padding:10px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.who{font-weight:900;font-size:16px}
+.who small{display:block;font-size:10px;color:var(--sub);font-weight:600;letter-spacing:1px}
+.stat{display:flex;flex-direction:column;line-height:1.3}
+.stat .k{font-size:10px;color:var(--sub);letter-spacing:1px}
+.stat .v{font-size:15px;font-weight:800}
+.spacer{flex:1}
+.mini-btn{background:var(--panel2);border:1px solid var(--line);padding:7px 12px;border-radius:9px;font-size:12px;font-weight:700}
+.mini-btn:hover{border-color:var(--gold);color:var(--gold)}
+.ticker{background:#0b1020;border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap;position:relative;height:32px}
+.ticker .lbl{position:absolute;left:0;top:0;bottom:0;display:flex;align-items:center;padding:0 12px;background:var(--up);font-size:11px;font-weight:900;z-index:2;letter-spacing:1px}
+.ticker .track{display:inline-block;padding:8px 0 8px 100%;font-size:12.5px;color:#cfe3ff;animation:roll 45s linear infinite}
+@keyframes roll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+.ticker .track span{margin-right:48px}
+nav{max-width:1180px;margin:0 auto;padding:12px 14px 0;display:flex;gap:7px;flex-wrap:wrap}
+nav button{padding:9px 15px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13.5px}
+nav button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border-color:transparent}
+main{max-width:1180px;margin:0 auto;padding:14px}
+.tab{display:none}.tab.on{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.panel{background:linear-gradient(170deg,var(--panel),#0d1424);border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:14px}
+.panel h3{font-size:14px;margin-bottom:11px;color:#cfd9f0}
+.panel h3 small{color:var(--sub);font-weight:500;font-size:11.5px;margin-left:6px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(266px,1fr));gap:11px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px;cursor:pointer;transition:border-color .15s,transform .15s}
+.card:hover{transform:translateY(-3px);border-color:#4a6aa8}
+.card .row1{display:flex;align-items:center;gap:8px}
+.card .ico{font-size:21px}
+.card .nm{font-weight:800;font-size:15px}
+.card .sec{font-size:10.5px;color:var(--sub);background:#0f1729;padding:2px 8px;border-radius:99px;margin-left:auto}
+.card .px{font-size:22px;font-weight:900;margin-top:9px;letter-spacing:-.5px}
+.card .chg{font-size:12.5px;font-weight:800;margin-top:2px}
+.card .hold{font-size:11px;color:var(--gold);margin-top:6px;font-weight:700}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--sub)}
+.spark{width:100%;height:38px;margin-top:8px;display:block}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:right;color:var(--sub);font-size:11px;font-weight:700;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:10px 8px;border-bottom:1px solid #1a2438;text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.tblwrap{overflow-x:auto}
+.empty-msg{text-align:center;color:var(--sub);padding:34px 10px;font-size:13.5px;line-height:1.95}
+
+.news-item{background:var(--panel2);border-left:3px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:9px}
+.news-item.good{border-left-color:var(--up)}
+.news-item.bad{border-left-color:var(--down)}
+.news-item .h{font-size:14px;font-weight:700;line-height:1.55}
+.news-item .m{font-size:11px;color:var(--sub);margin-top:6px}
+.tag{background:#0f1729;padding:2px 8px;border-radius:99px;font-weight:700;margin-right:6px}
+.tag.g{color:var(--up)}.tag.b{color:var(--down)}
+
+.casino{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.casino{grid-template-columns:1fr}}
+.machine{background:linear-gradient(175deg,#2a1330,#140a1c);border:1px solid #47265c;border-radius:17px;padding:17px;text-align:center}
+.machine h2{font-size:19px;font-weight:900;margin-bottom:4px;background:linear-gradient(90deg,#ffd75e,#ff6fae);-webkit-background-clip:text;background-clip:text;color:transparent}
+.machine .sub{font-size:11.5px;color:#b79bd0;margin-bottom:14px}
+.reels{display:flex;gap:9px;justify-content:center;margin:8px 0 14px}
+.reel{width:76px;height:90px;background:#0a0610;border:2px solid #5b3272;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:inset 0 0 22px rgba(255,111,174,.2)}
+.reel.spin{animation:shake .12s infinite}
+@keyframes shake{0%,100%{transform:translateY(-4px)}50%{transform:translateY(4px)}}
+.bet-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.bet-row button{background:#2c1838;border:1px solid #543069;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:700}
+.bet-row button:hover{border-color:#ff6fae;color:#ff9fc8}
+.bet-in{width:150px;text-align:center;background:#0a0610;border:1px solid #543069;color:var(--gold);padding:9px;border-radius:9px;font-size:16px;font-weight:800}
+.spin-btn{width:100%;padding:14px;border-radius:12px;font-size:17px;font-weight:900;margin-top:11px;background:linear-gradient(135deg,#ff6fae,#ff3d6e);color:#fff;box-shadow:0 7px 22px rgba(255,61,110,.3)}
+.spin-btn:disabled{opacity:.45;cursor:not-allowed}
+.oe-btns{display:flex;gap:9px;margin-top:11px}
+.oe-btns button{flex:1;padding:15px;border-radius:12px;font-size:17px;font-weight:900}
+.oe-btns button:disabled{opacity:.45;cursor:not-allowed}
+.oe-odd{background:linear-gradient(135deg,#ff8a3c,#ff4d5e);color:#fff}
+.oe-even{background:linear-gradient(135deg,#4d8cff,#7b5cff);color:#fff}
+.dice{width:104px;height:104px;margin:6px auto 4px;border-radius:19px;background:#0a0610;border:2px solid #5b3272;display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:900;color:var(--gold)}
+.result{min-height:26px;font-size:14.5px;font-weight:800;margin-top:9px}
+.paytable{font-size:11px;color:#b79bd0;margin-top:12px;line-height:1.9;text-align:left;background:#180d22;padding:10px 12px;border-radius:9px}
+
+.modal{position:fixed;inset:0;background:rgba(3,6,12,.82);backdrop-filter:blur(5px);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.on{display:flex}
+.mbox{background:linear-gradient(170deg,#141d31,#0c1220);border:1px solid var(--line);border-radius:18px;padding:19px;width:100%;max-width:470px;max-height:92vh;overflow:auto;animation:pop .22s}
+@keyframes pop{from{transform:scale(.93);opacity:0}to{transform:none;opacity:1}}
+.mbox h2{font-size:20px}
+.qty{display:flex;gap:6px;align-items:center;margin:11px 0}
+.qty button{background:var(--panel2);border:1px solid var(--line);width:46px;height:42px;border-radius:9px;font-weight:800;font-size:13px}
+.qty input{flex:1;min-width:0;text-align:center;background:#0a1020;border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:9px;font-size:17px;font-weight:800}
+.trade-btns{display:flex;gap:9px;margin-top:12px}
+.trade-btns button{flex:1;padding:14px;border-radius:11px;font-size:16px;font-weight:900}
+.buy{background:linear-gradient(135deg,#ff4d5e,#d6253b);color:#fff}
+.sell{background:linear-gradient(135deg,#4d8cff,#2a5fd6);color:#fff}
+.buy:disabled,.sell:disabled{opacity:.4;cursor:not-allowed}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid #1a2438}
+.kv span:first-child{color:var(--sub)}
+.name-in{width:100%;background:#0a1020;border:1px solid var(--line);color:var(--txt);padding:13px;border-radius:11px;font-size:17px;font-weight:700;text-align:center;margin:14px 0}
+.big-btn{width:100%;padding:14px;border-radius:12px;font-weight:900;font-size:16px;background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#2a1a00}
+.ghost-btn{width:100%;padding:12px;border-radius:12px;font-weight:800;font-size:14px;background:var(--panel2);border:1px solid var(--line);margin-top:8px}
+
+#flash{position:fixed;left:50%;transform:translateX(-50%) translateY(-150%);top:14px;z-index:300;
+  background:linear-gradient(135deg,#ff2d4d,#b8102b);padding:11px 18px;border-radius:13px;max-width:92vw;
+  box-shadow:0 12px 40px rgba(255,45,77,.4);transition:transform .45s cubic-bezier(.2,1.4,.4,1);font-weight:800;font-size:13.5px}
+#flash.show{transform:translateX(-50%) translateY(0)}
+#flash small{display:block;font-size:10.5px;opacity:.85;font-weight:600;letter-spacing:1px;margin-bottom:3px}
+#toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(160%);z-index:300;
+  background:#182238;border:1px solid var(--line);padding:11px 19px;border-radius:12px;font-weight:700;font-size:13.5px;
+  transition:transform .3s;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:92vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.chartbox{width:100%;height:172px;background:#080d18;border:1px solid var(--line);border-radius:11px;margin:11px 0;display:block}
+
+/* 배속 */
+.speed{display:flex;gap:3px;background:#0c1322;border:1px solid var(--line);border-radius:10px;padding:3px}
+.speed button{padding:5px 9px;border-radius:7px;font-size:12px;font-weight:800;background:transparent;color:var(--sub)}
+.speed button.on{background:linear-gradient(135deg,var(--mint),#12b48c);color:#00251b}
+.speed button.on[data-sp="0"]{background:linear-gradient(135deg,#ff8a3c,#ff4d5e);color:#fff}
+
+/* 은행 */
+.bank{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.bank{grid-template-columns:1fr}}
+.bankbox{background:linear-gradient(175deg,#12212e,#0a141e);border:1px solid #1f3c4e;border-radius:17px;padding:17px}
+.bankbox h2{font-size:18px;font-weight:900;margin-bottom:12px;color:#7fe3ff}
+.debt-big{font-size:29px;font-weight:900;color:var(--up);letter-spacing:-1px}
+.gauge{height:9px;background:#0a1320;border-radius:99px;overflow:hidden;margin:10px 0 5px;border:1px solid var(--line)}
+.gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--mint),var(--gold),var(--up));transition:width .3s}
+.grade{display:inline-block;padding:3px 11px;border-radius:99px;font-weight:900;font-size:13px;background:#0f2a1f;color:var(--mint)}
+.grade.warn{background:#2c1420;color:#ff8a9c}
+.loan-in{width:100%;background:#071018;border:1px solid #1f3c4e;color:var(--gold);padding:11px;border-radius:10px;font-size:17px;font-weight:800;text-align:center;margin:10px 0}
+.bank-btn{width:100%;padding:13px;border-radius:11px;font-weight:900;font-size:15px}
+.b-loan{background:linear-gradient(135deg,#2ec5ff,#1670c9);color:#02121f}
+.b-repay{background:linear-gradient(135deg,var(--mint),#12b48c);color:#00251b}
+.bank-btn:disabled{opacity:.4;cursor:not-allowed}
+.banklog{font-size:11.5px;color:var(--sub);line-height:1.9;margin-top:12px;background:#08131c;border-radius:9px;padding:10px 12px;max-height:158px;overflow:auto}
+.warnbox{background:#2a1220;border:1px solid #57263a;color:#ffb3c0;font-size:12px;line-height:1.8;padding:10px 12px;border-radius:10px;margin-top:11px}
+</style>
+</head>
+<body>
+
+<div id="adTop" class="adbar"></div>
+
+<!-- ============ 로그인 ============ -->
+<div id="login" class="screen on">
+  <div class="logo">
+    <h1>머니로드</h1>
+    <p>1 만 원 으 로   시 작 하 는   인 생 역 전</p>
+  </div>
+  <div class="loginbox">
+    <h2>로그인하고 시작하기</h2>
+    <p>계정별로 저장 슬롯 6칸이 따로 관리됩니다.</p>
+    <button class="gbtn" id="googleBtn">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      Google 계정으로 로그인
+    </button>
+    <div id="gsiBtn" style="display:none;justify-content:center"></div>
+    <div class="logindiv">또는</div>
+    <button class="guestbtn" id="guestBtn">🎮 게스트로 바로 시작</button>
+    <div class="loginnote" id="loginNote">
+      게스트로 시작하면 이 브라우저에만 기록이 저장됩니다.
+    </div>
+  </div>
+</div>
+
+<!-- ============ 유저 선택 ============ -->
+<div id="select" class="screen">
+  <div class="profile" id="profileBar">
+    <img id="pfImg" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Ccircle cx='15' cy='15' r='15' fill='%23223049'/%3E%3C/svg%3E">
+    <div style="text-align:left"><div class="pn" id="pfName">게스트</div><div class="pe" id="pfMail">로컬 저장</div></div>
+    <button id="logoutBtn">로그아웃</button>
+  </div>
+  <div class="logo" style="margin-top:14px">
+    <h1>머니로드</h1>
+    <p>1 만 원 으 로   시 작 하 는   인 생 역 전</p>
+  </div>
+  <div class="slots" id="slotList"></div>
+  <div class="tip">
+    시드머니 <b>10,000원</b>으로 국내·해외 13개 종목에 투자하세요. 30초마다 <b>AI가 속보를 실시간 생성</b>하고,
+    그 뉴스가 주가를 즉시 뒤흔듭니다. 돈이 부족하면 <b>은행 대출</b>로 레버리지를 당기거나 <b>카지노</b>에서 한 방을 노려보세요.<br>
+    <b>배속(1x~8x)</b>으로 시간을 돌릴 수 있고, 저장 슬롯은 6칸이라 언제든 이어하기 가능합니다.
+  </div>
+</div>
+
+<!-- ============ 게임 ============ -->
+<div id="game" class="screen">
+  <div class="topbar">
+    <div class="tb-in">
+      <div class="who"><span id="uName">-</span><small id="uDay">DAY 1</small></div>
+      <div class="stat"><span class="k">현금</span><span class="v" id="uCash">-</span></div>
+      <div class="stat"><span class="k">주식평가</span><span class="v" id="uEval">-</span></div>
+      <div class="stat"><span class="k">부채</span><span class="v" id="uDebt" style="color:var(--up)">-</span></div>
+      <div class="stat"><span class="k">순자산</span><span class="v" id="uTotal" style="color:var(--gold)">-</span></div>
+      <div class="stat"><span class="k">수익률</span><span class="v" id="uRoi">-</span></div>
+      <div class="stat"><span class="k">환율</span><span class="v" id="uFx" style="font-size:13px">-</span></div>
+      <div class="spacer"></div>
+      <div class="speed" id="speedBox">
+        <button data-sp="0">⏸</button><button data-sp="1" class="on">1x</button>
+        <button data-sp="2">2x</button><button data-sp="4">4x</button><button data-sp="8">8x</button>
+      </div>
+      <button class="mini-btn" id="btnSave">💾 저장</button>
+      <button class="mini-btn" id="btnExit">🚪 나가기</button>
+    </div>
+  </div>
+  <div class="ticker"><div class="lbl">속보</div><div class="track" id="tickerTrack"></div></div>
+
+  <nav>
+    <button class="on" data-tab="kr">🇰🇷 국내주식</button>
+    <button data-tab="us">🌎 해외주식</button>
+    <button data-tab="pf">💼 내 포트폴리오</button>
+    <button data-tab="bank">🏦 은행/대출</button>
+    <button data-tab="casino">🎰 카지노</button>
+    <button data-tab="news">📰 뉴스</button>
+  </nav>
+
+  <main>
+    <div class="tab on" id="tab-kr"><div class="panel"><h3>국내 증시 <small>클릭하면 매수/매도 창이 열립니다</small></h3><div class="grid" id="gridKR"></div></div></div>
+    <div class="tab" id="tab-us"><div class="panel"><h3>해외 증시 <small>달러 표시 · 매매 시 환율이 적용됩니다</small></h3><div class="grid" id="gridUS"></div></div></div>
+
+    <div class="tab" id="tab-pf">
+      <div class="panel"><h3>순자산 추이 <small>부채를 뺀 진짜 내 돈</small></h3><canvas class="chartbox" id="assetChart"></canvas>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--sub)">
+          <div>최고 순자산 <b id="pfMax" style="color:var(--gold)">-</b></div>
+          <div>총 매매 <b id="pfTrades" style="color:var(--txt)">0</b>회</div>
+          <div>카지노 전적 <b id="pfCasino" style="color:var(--txt)">0승 0패</b></div>
+          <div>누적 수수료 <b id="pfFee" style="color:var(--txt)">0원</b></div>
+          <div>누적 이자 <b id="pfInt" style="color:var(--up)">0원</b></div>
+        </div>
+      </div>
+      <div class="panel"><h3>보유 종목</h3><div class="tblwrap" id="holdTable"></div></div>
+    </div>
+
+    <div class="tab" id="tab-bank">
+      <div class="bank">
+        <div class="bankbox">
+          <h2>🏦 신용대출</h2>
+          <div style="font-size:11px;color:var(--sub);letter-spacing:1px">현재 부채</div>
+          <div class="debt-big" id="bkDebt">0원</div>
+          <div class="gauge"><i id="bkGauge" style="width:0%"></i></div>
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub)">
+            <span>한도 소진 <b id="bkUse" style="color:var(--txt)">0%</b></span>
+            <span>대출 한도 <b id="bkLimit" style="color:var(--txt)">-</b></span>
+          </div>
+          <div class="kv" style="margin-top:12px"><span>신용등급</span><b><span class="grade" id="bkGrade">-</span></b></div>
+          <div class="kv"><span>일 이자율 (DAY마다 부과)</span><b id="bkRate">-</b></div>
+          <div class="kv"><span>다음 DAY 이자</span><b id="bkNext">-</b></div>
+          <div class="kv"><span>추가 대출 가능</span><b id="bkAvail" style="color:var(--mint)">-</b></div>
+          <input class="loan-in" id="loanAmt" type="number" min="1000" step="1000" value="10000">
+          <div class="bet-row" style="margin-bottom:10px">
+            <button data-loan="10000">1만</button><button data-loan="50000">5만</button>
+            <button data-loan="100000">10만</button><button data-loan="max">최대</button>
+          </div>
+          <button class="bank-btn b-loan" id="doLoan">💰 대출 받기</button>
+          <div class="warnbox">
+            빌린 돈은 <b>DAY마다 이자가 붙습니다.</b> 현금이 없으면 이자가 원금에 얹혀 복리로 불어납니다.<br>
+            순자산이 부채의 15% 아래로 떨어지면 <b>마진콜</b> — 보유 주식이 전부 강제 청산됩니다.
+          </div>
+        </div>
+        <div class="bankbox">
+          <h2>💳 상환</h2>
+          <div class="kv"><span>보유 현금</span><b style="color:var(--gold)" id="bkCash">-</b></div>
+          <div class="kv"><span>갚아야 할 원리금</span><b style="color:var(--up)" id="bkDebt2">-</b></div>
+          <div class="kv"><span>누적 이자 납부</span><b id="bkPaid">-</b></div>
+          <div class="kv"><span>누적 대출액</span><b id="bkTotal">-</b></div>
+          <input class="loan-in" id="repayAmt" type="number" min="1000" step="1000" value="10000">
+          <div class="bet-row" style="margin-bottom:10px">
+            <button data-repay="10000">1만</button><button data-repay="50000">5만</button>
+            <button data-repay="100000">10만</button><button data-repay="max">전액상환</button>
+          </div>
+          <button class="bank-btn b-repay" id="doRepay">✅ 상환하기</button>
+          <div class="banklog" id="bankLog">거래 내역이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-casino">
+      <div class="casino">
+        <div class="machine">
+          <h2>🎰 슬롯머신</h2>
+          <div class="sub">세 개를 맞춰라. 인생은 한 방.</div>
+          <div class="reels"><div class="reel" id="r0">🍒</div><div class="reel" id="r1">🍋</div><div class="reel" id="r2">🔔</div></div>
+          <div class="bet-row">
+            <button data-slotbet="1000">1천</button><button data-slotbet="5000">5천</button>
+            <button data-slotbet="10000">1만</button><button data-slotbet="100000">10만</button>
+            <button data-slotbet="max">올인</button>
+          </div>
+          <input class="bet-in" id="slotBet" type="number" value="1000" min="1000">
+          <button class="spin-btn" id="slotSpin">🎲 돌린다 (SPIN)</button>
+          <div class="result" id="slotResult"></div>
+          <div class="paytable">
+            7️⃣7️⃣7️⃣ ×500 &nbsp;·&nbsp; 👑👑👑 ×100 &nbsp;·&nbsp; 💎💎💎 ×50<br>
+            🍀🍀🍀 ×20 &nbsp;·&nbsp; 🔔🔔🔔 ×10 &nbsp;·&nbsp; 🍋🍋🍋 ×5 &nbsp;·&nbsp; 🍒🍒🍒 ×3<br>
+            같은 그림 2개 ×1.3 &nbsp;|&nbsp; 최소 베팅 1,000원
+          </div>
+        </div>
+        <div class="machine">
+          <h2>🎴 홀짝 게임</h2>
+          <div class="sub">1~10 중 하나. 홀이냐 짝이냐.</div>
+          <div class="dice" id="oeDice">?</div>
+          <div class="bet-row">
+            <button data-oebet="1000">1천</button><button data-oebet="5000">5천</button>
+            <button data-oebet="10000">1만</button><button data-oebet="100000">10만</button>
+            <button data-oebet="max">올인</button>
+          </div>
+          <input class="bet-in" id="oeBet" type="number" value="1000" min="1000">
+          <div class="oe-btns"><button class="oe-odd" id="betOdd">홀 ×1.9</button><button class="oe-even" id="betEven">짝 ×1.9</button></div>
+          <div style="margin-top:9px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap">
+            <span style="font-size:12px;color:#b79bd0">숫자 정타 ×8 →</span>
+            <select id="oePick" style="background:#0a0610;border:1px solid #543069;color:var(--gold);padding:7px 10px;border-radius:8px;font-weight:800">
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+              <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+            </select>
+            <button class="mini-btn" id="betExact" style="background:#3a1f4a;border-color:#6b3d86">정타 배팅</button>
+          </div>
+          <div class="result" id="oeResult"></div>
+          <div class="paytable">홀/짝 적중 시 베팅액의 1.9배를 돌려받습니다 (원금 포함).<br>숫자 정타는 8배. 카지노는 언제나 하우스가 유리합니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-news">
+      <div class="panel"><h3>AI 실시간 속보 <small id="newsCounter">다음 속보까지 30초</small></h3><div id="newsList"></div></div>
+    </div>
+  </main>
+</div>
+
+<div id="adBottom" class="adbar bottom"></div>
+
+<!-- 모달 -->
+<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+<div id="flash"></div>
+<div id="toast"></div>
+
+<script>
+/* ==================== 데이터 ==================== */
+const START_CASH = 10000;
+const SAVE_KEY = 'MONEYROAD_SAVE_V1';
+const TICK_MS = 1000;
+const NEWS_EVERY = 30;      // 30초마다 AI 속보
+const TICKS_PER_DAY = 20;
+
+const STOCK_DEF = [
+  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.009, drift:0.00035},
+  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.021, drift:0.00050},
+  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.018, drift:0.00020},
+  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.014, drift:0.00030},
+  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.017, drift:0.00055},
+  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.012, drift:0.00028},
+  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.023, drift:0.00065},
+  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.011, drift:0.00032},
+  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.007, drift:0.00025},
+  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.010, drift:0.00035},
+  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.029, drift:0.00040},
+  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.014, drift:0.00033},
+  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.031, drift:0.00045},
+];
+
+/* ==================== AI 속보 생성기 ==================== */
+const RNG = (a,b)=>a+Math.random()*(b-a);
+const RI = (a,b)=>Math.floor(RNG(a,b+1));
+const pick = a=>a[Math.floor(Math.random()*a.length)];
+
+const AI_REPORTERS = ['AI 머니봇','알파리포트','퀀트AI-3','뉴스젠 AI','마켓센서','딥마켓 AI'];
+
+const TPL_GOOD = [
+  '{N}, 분기 영업이익 {p}% 급증… 시장 컨센서스 대폭 상회',
+  '[단독] {N} 신제품 사전예약 {k}만 건 돌파, 공장 풀가동 돌입',
+  '{N}, 글로벌 {x}사와 {m}억 규모 초대형 공급계약 체결',
+  '외국인 {d}일 연속 {N} 순매수… "저평가 구간 진입" 분석',
+  '{N} 자사주 {m}억 소각 결정… 주주환원 기대감 확산',
+  '증권가 목표주가 일제히 상향 "{N}, 지금이 바닥이다"',
+  '{N} 신사업 {s} 부문, 첫 흑자 전환 성공',
+  '{N}, 글로벌 시장 점유율 {p}%p 확대… 1위 굳히기',
+  '"{N} 없으면 산업이 멈춘다" 공급망 핵심 기업 재평가',
+  '{N} 대표 "올해 사상 최대 실적 자신" 깜짝 발언',
+  '기관 매수세 폭발, {N} 거래량 평소의 {d}배',
+  '{N} 특허 소송 승소… 경쟁사에 {m}억 배상 판결',
+  '{N}, {s} 사업 분할 상장 추진설… 기업가치 재평가 기대',
+  '해외 연기금, {N} 지분 {p}% 신규 취득 공시',
+];
+const TPL_BAD = [
+  '{N}, 분기 실적 어닝쇼크… 영업이익 {p}% 급감',
+  '[속보] {N} 주력 공장 가동 중단, 생산 차질 불가피',
+  '{N} 리콜 사태 확산… 예상 비용 {m}억원 추산',
+  '외국인 {d}일째 {N} 순매도 폭탄… 수급 붕괴',
+  '공정위, {N} 불공정거래 혐의 전격 조사 착수',
+  '증권가 "{N} 목표주가 하향" 리포트 잇따라',
+  '{N} 핵심 인력 대거 이탈… 경쟁사로 {d}명 이직',
+  '{N} 신사업 {s} 철수 결정, 손실 {m}억 반영',
+  '{N} 대규모 유상증자 발표… 주주가치 희석 우려',
+  '"{N} 이미 고점" 경고음… 기관 차익실현 본격화',
+  '{N} 경쟁사 신제품 출시에 점유율 {p}%p 잠식',
+  '{N} CEO 돌연 사임… 경영 공백 장기화 우려',
+  '해킹 사고로 {N} 고객정보 {k}만 건 유출 정황',
+  '{N} 재고 급증… "수요 절벽 왔다" 애널리스트 경고',
+];
+const TPL_SECTOR_G = [
+  '{S} 업황 슈퍼사이클 진입… 관련주 일제히 강세',
+  '정부, {S} 산업에 {m}조 규모 지원책 전격 발표',
+  '{S} 수출 지표 {p}% 증가… 업종 전반 훈풍',
+  '글로벌 {S} 수요 폭증, 공급이 못 따라간다',
+];
+const TPL_SECTOR_B = [
+  '{S} 업황 둔화 경고… 관련주 동반 약세',
+  '{S} 규제 강화 법안 통과 임박, 업계 비상',
+  '{S} 재고 사상 최대… "겨울이 온다" 경고',
+  '중국發 {S} 저가 공세에 업계 수익성 급락',
+];
+const TPL_MACRO_G = [
+  '한국은행 기준금리 전격 인하… 증시 유동성 기대감',
+  '美 연준 "금리 인하 시사"… 글로벌 위험자산 랠리',
+  '코스피 외국인 순매수 전환, {m}억 유입',
+  '소비심리지수 {d}개월 만에 최고치 경신',
+  '미중 무역협상 극적 타결… 불확실성 해소',
+];
+const TPL_MACRO_B = [
+  '美 소비자물가 예상치 상회… 긴축 장기화 공포',
+  '국제유가 배럴당 {d}달러 돌파, 인플레 비상',
+  '글로벌 신용경색 우려 확산… 위험자산 투매',
+  '지정학 리스크 재점화, 아시아 증시 동반 급락',
+  '대형 헤지펀드 청산설… 시장 패닉셀 출현',
+];
+const TPL_MEGA_G = [
+  '🚨 {N}, AGI 시대 핵심 파트너로 전격 선정… 상한가 직행',
+  '🚨 {N} 인수합병 추진설… 경영권 프리미엄 폭등',
+  '🚨 {N}, 세계 최초 {s} 양산 성공 발표… 시장 충격',
+];
+const TPL_MEGA_B = [
+  '🚨 {N} 분식회계 의혹 제기… 거래정지 검토',
+  '🚨 {N} 초대형 악재 터졌다… 투매 폭탄',
+  '🚨 {N} 최대 고객사 계약 전면 해지 통보',
+];
+const SIDE_WORDS = ['AI반도체','로보틱스','자율주행','클라우드','바이오','우주항공','2차전지','양자컴퓨팅','메타버스'];
+const PARTNERS = ['오픈AI','테크노바','글로벌텍','메가코프','스타링크'];
+
+function fillTpl(t, o){
+  return t.replace(/\{N\}/g,o.N||'').replace(/\{S\}/g,o.S||'')
+    .replace(/\{p\}/g,RI(6,68)).replace(/\{k\}/g,RI(12,480))
+    .replace(/\{m\}/g,(RI(3,95)*10).toLocaleString()).replace(/\{d\}/g,RI(3,14))
+    .replace(/\{s\}/g,pick(SIDE_WORDS)).replace(/\{x\}/g,pick(PARTNERS));
+}
+
+/* AI 속보 생성: 종류를 굴려 헤드라인 + 영향도 반환 */
+function generateNews(){
+  const roll = Math.random();
+  const stamp = ()=>pick(AI_REPORTERS);
+  if(roll < 0.55){                       // 개별 종목
+    const s = pick(G.stocks);
+    const good = Math.random() < 0.5;
+    const mag = RNG(1.5, 7.5) * (Math.random()<0.25?2.2:1);
+    return {head: fillTpl(pick(good?TPL_GOOD:TPL_BAD), {N:s.name}), good,
+      targets:[s.id], pct: good?mag:-mag, scope:s.name, by:stamp()};
+  }else if(roll < 0.75){                 // 섹터
+    const sec = pick([...new Set(G.stocks.map(s=>s.sec))]);
+    const good = Math.random() < 0.5;
+    const mag = RNG(1.2, 5.0);
+    return {head: fillTpl(pick(good?TPL_SECTOR_G:TPL_SECTOR_B), {S:sec}), good,
+      targets:G.stocks.filter(s=>s.sec===sec).map(s=>s.id), pct: good?mag:-mag, scope:sec+' 섹터', by:stamp()};
+  }else if(roll < 0.94){                 // 거시
+    const good = Math.random() < 0.5;
+    const krOnly = Math.random() < 0.4;
+    const mag = RNG(0.8, 3.4);
+    const tg = krOnly ? G.stocks.filter(s=>s.mkt==='KR') : G.stocks;
+    return {head: fillTpl(pick(good?TPL_MACRO_G:TPL_MACRO_B), {}), good,
+      targets:tg.map(s=>s.id), pct: good?mag:-mag, scope: krOnly?'국내 증시 전체':'증시 전체', by:stamp(), macro:true};
+  }else{                                 // 초대형
+    const s = pick(G.stocks);
+    const good = Math.random() < 0.5;
+    const mag = RNG(16, 30);
+    return {head: fillTpl(pick(good?TPL_MEGA_G:TPL_MEGA_B), {N:s.name}), good,
+      targets:[s.id], pct: good?mag:-mag, scope:s.name, by:stamp(), mega:true};
+  }
+}
+
+/* ==================== 상태 ==================== */
+let G = null;          // 현재 게임 상태
+let timer = null;
+const $ = id=>document.getElementById(id);
+const fmtW = n=>Math.round(n).toLocaleString('ko-KR')+'원';
+const fmtU = n=>'$'+n.toFixed(2);
+const sign = n=>(n>0?'+':'')+n.toFixed(2);
+const clsOf = n=>n>0.0001?'up':(n<-0.0001?'down':'flat');
+
+function freshStocks(){
+  return STOCK_DEF.map(d=>({...d, base:d.price, prev:d.price, mom:0, hist:[d.price]}));
+}
+function newGame(name){
+  return {
+    name, cash:START_CASH, holdings:{}, day:1, tick:0, fx:1380,
+    stocks:freshStocks(), news:[], assetHist:[START_CASH],
+    debt:0, bank:[], speed:1,
+    stats:{trades:0, fee:0, cwin:0, close:0, max:START_CASH, interest:0, loans:0},
+    slot:0, created:Date.now()
+  };
+}
+
+/* ==================== 저장 ==================== */
+let SLOTS = [null,null,null,null,null,null];
+let storageWarned = false;
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){
+  try{ localStorage.setItem(k,v); return true; }
+  catch(e){
+    if(!storageWarned){ storageWarned=true; toast('⚠️ 브라우저 저장소가 차단되어 진행이 영구 저장되지 않습니다'); }
+    return false;
+  }
+}
+function slotKey(){ return SAVE_KEY + ':' + (AUTH && AUTH.mode==='google' ? 'g_'+AUTH.id : 'guest'); }
+function loadUserSlots(){                          // 계정이 바뀌면 그 계정의 6칸을 불러온다
+  try{ const a=JSON.parse(lsGet(slotKey())); if(Array.isArray(a)&&a.length===6){ SLOTS=a; return; } }catch(e){}
+  SLOTS = [null,null,null,null,null,null];
+}
+function loadSlots(){ return SLOTS; }              // 메모리가 원본 — 저장소가 막혀도 게임은 돌아간다
+function saveSlots(a){ SLOTS = a; lsSet(slotKey(), JSON.stringify(a)); }
+function saveGame(silent){
+  if(!G) return;
+  const slots = loadSlots();
+  slots[G.slot] = G;
+  saveSlots(slots);
+  if(!silent) toast('💾 저장 완료');
+}
+
+/* ==================== 로그인 ====================
+   Google 로그인을 켜려면 아래 GOOGLE_CLIENT_ID에 클라이언트 ID를 넣으세요.
+   발급: console.cloud.google.com → API 및 서비스 → 사용자 인증 정보
+        → OAuth 클라이언트 ID(웹 애플리케이션) 만들기
+        → '승인된 JavaScript 원본'에 이 페이지 주소를 등록
+   비워두면 Google 버튼이 설정 안내를 띄우고, 게스트 로그인은 그대로 동작합니다.      */
+const GOOGLE_CLIENT_ID = '';
+const AUTH_KEY = 'MONEYROAD_AUTH_V1';
+let AUTH = null, googleReady = false;
+
+function showScreen(id){
+  ['login','select','game'].forEach(s=>$(s).classList.toggle('on', s===id));
+  window.scrollTo(0,0);
+}
+function setAuth(a){
+  AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
+  loadUserSlots(); renderProfile(); renderSlots(); showScreen('select');
+}
+function renderProfile(){
+  if(!AUTH) return;
+  const guest = AUTH.mode!=='google';
+  $('pfName').textContent = AUTH.name || '게스트';
+  $('pfMail').textContent = guest ? '게스트 · 이 브라우저에만 저장' : (AUTH.email||'Google 계정');
+  if(AUTH.pic) $('pfImg').src = AUTH.pic;
+}
+function logout(){
+  if(G) saveGame(true);
+  if(timer){ clearInterval(timer); timer=null; }
+  G = null; AUTH = null;
+  try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
+  if(googleReady && window.google) try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+  SLOTS = [null,null,null,null,null,null];
+  showScreen('login'); toast('로그아웃했습니다');
+}
+function parseJwt(t){
+  try{
+    const b = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(decodeURIComponent(atob(b).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+  }catch(e){ return null; }
+}
+function onGoogleCred(res){
+  const p = parseJwt(res.credential);
+  if(!p || !p.sub) return toast('Google 로그인 정보를 읽지 못했습니다');
+  setAuth({mode:'google', id:p.sub, name:p.name||p.email||'Google 사용자', email:p.email||'', pic:p.picture||''});
+  toast(`👋 ${p.name||''}님 환영합니다`);
+}
+function initGoogle(){
+  if(!GOOGLE_CLIENT_ID) return;
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+  s.onload = ()=>{
+    try{
+      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleCred, auto_select:false});
+      google.accounts.id.renderButton($('gsiBtn'), {theme:'outline', size:'large', width:340, text:'signin_with', locale:'ko'});
+      googleReady = true;
+      $('googleBtn').style.display = 'none';
+      $('gsiBtn').style.display = 'flex';
+    }catch(e){ googleReady = false; }
+  };
+  s.onerror = ()=>{ googleReady = false; $('loginNote').textContent = 'Google 로그인 스크립트를 불러오지 못했습니다. 게스트로 시작해주세요.'; };
+  document.head.appendChild(s);
+}
+function googleSetupGuide(){
+  openModal(`<h2>🔧 Google 로그인 설정</h2>
+    <p style="color:var(--sub);font-size:13px;margin:10px 0;line-height:1.85">
+      아직 클라이언트 ID가 등록되지 않았습니다. 아래 절차 후 파일 상단의
+      <b style="color:var(--gold)">GOOGLE_CLIENT_ID</b> 값만 채우면 바로 켜집니다.</p>
+    <div style="font-size:12.5px;line-height:2;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
+      1. <b>console.cloud.google.com</b> 접속<br>
+      2. API 및 서비스 → 사용자 인증 정보<br>
+      3. 사용자 인증 정보 만들기 → <b>OAuth 클라이언트 ID</b> → 웹 애플리케이션<br>
+      4. <b>승인된 JavaScript 원본</b>에 이 페이지 주소 추가<br>
+      5. 발급된 ID를 <b>GOOGLE_CLIENT_ID</b>에 붙여넣기
+    </div>
+    <p style="color:var(--sub);font-size:12px;margin-top:12px;line-height:1.8">
+      수업 중이라면 <b style="color:var(--mint)">게스트 로그인</b>으로 모든 기능을 그대로 쓸 수 있습니다.</p>
+    <button class="big-btn" style="margin-top:12px" id="guestFromModal">🎮 게스트로 시작하기</button>
+    <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+  $('guestFromModal').onclick = ()=>{ closeModal(); guestLogin(); };
+}
+function guestLogin(){ setAuth({mode:'guest', id:'guest', name:'게스트', email:'', pic:''}); }
+
+$('googleBtn').onclick = ()=>{
+  if(!GOOGLE_CLIENT_ID) return googleSetupGuide();
+  if(!googleReady) return toast('Google 로그인을 준비 중입니다. 잠시 후 다시 시도해주세요');
+  try{ google.accounts.id.prompt(); }catch(e){ toast('Google 로그인 창을 열지 못했습니다'); }
+};
+$('guestBtn').onclick = guestLogin;
+$('logoutBtn').onclick = logout;
+
+function bootAuth(){
+  initGoogle(); initAds();
+  try{
+    const a = JSON.parse(lsGet(AUTH_KEY));
+    if(a && a.mode){ AUTH = a; loadUserSlots(); renderProfile(); renderSlots(); return showScreen('select'); }
+  }catch(e){}
+  showScreen('login');
+}
+
+/* ==================== 배너 광고 ====================
+   AdSense를 쓰려면 아래 3개 값을 채우세요. 비워두면 자체 배너가 돌아갑니다.
+   (AdSense는 승인된 도메인에서만 노출되며, 로컬 파일에서는 보이지 않습니다)     */
+const ADSENSE = { client:'', slotTop:'', slotBottom:'' };
+const HOUSE_ADS = [
+  {ico:'🍗', h:'치킨 한 마리 값으로 시작하는 투자', s:'머니로드 프리미엄 — 지금 가입하면 0원', cta:'받기'},
+  {ico:'📈', h:'수익률 999% 비법 전격 공개!', s:'※ 광고입니다. 세상에 그런 건 없습니다', cta:'자세히'},
+  {ico:'🏦', h:'저금리 신용대출 한번에 비교', s:'DAY 0.5%부터 · 신용등급 조회는 무료', cta:'조회'},
+  {ico:'🎰', h:'카지노 첫 방문 웰컴 보너스', s:'행운은 준비된 사람에게 옵니다', cta:'입장'},
+  {ico:'🍜', h:'야식의 정석, 불닭 신제품 출시', s:'매운맛 2배 · 편의점에서 만나보세요', cta:'구매'},
+  {ico:'🚀', h:'내일의 상한가 종목은 어디?', s:'AI가 찍어주는 오늘의 픽 무료 공개', cta:'확인'},
+  {ico:'📚', h:'주식 기초 무료 강의 오픈', s:'1만원으로 배우는 투자의 원리', cta:'수강'},
+  {ico:'☕', h:'장 마감까지 버티는 각성 한 잔', s:'아메리카노 1+1 이벤트 진행 중', cta:'주문'},
+];
+let adIdx = 0;
+function adHTML(a){
+  return `<div class="ad" data-ad="${esc(a.h)}"><span class="alabel">AD</span>
+    <span class="aico">${a.ico}</span>
+    <span class="atx"><span class="ah">${esc(a.h)}</span><span class="as">${esc(a.s)}</span></span>
+    <span class="acta">${esc(a.cta)}</span></div>`;
+}
+function renderAds(){
+  $('adTop').innerHTML = adHTML(HOUSE_ADS[adIdx % HOUSE_ADS.length]);
+  $('adBottom').innerHTML = adHTML(HOUSE_ADS[(adIdx+3) % HOUSE_ADS.length]);
+}
+function mountAdsense(){
+  const s = document.createElement('script');
+  s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+ADSENSE.client;
+  s.async = true; s.crossOrigin = 'anonymous';
+  document.head.appendChild(s);
+  const unit = slot=>`<ins class="adsbygoogle" style="display:block;width:100%;max-width:728px;height:60px"
+      data-ad-client="${ADSENSE.client}" data-ad-slot="${slot}" data-full-width-responsive="true"></ins>`;
+  $('adTop').innerHTML = unit(ADSENSE.slotTop);
+  $('adBottom').innerHTML = unit(ADSENSE.slotBottom);
+  s.onload = ()=>{ try{ (adsbygoogle=window.adsbygoogle||[]).push({}); (adsbygoogle=window.adsbygoogle||[]).push({}); }catch(e){} };
+}
+function initAds(){
+  if(ADSENSE.client && ADSENSE.slotTop){ return mountAdsense(); }
+  renderAds();
+  setInterval(()=>{ adIdx++; renderAds(); }, 9000);
+  document.addEventListener('click', e=>{
+    const a = e.target.closest('[data-ad]');
+    if(a) toast('📢 게임 속 가상 광고입니다 — 실제로는 아무 일도 없습니다');
+  });
+}
+
+/* ==================== 슬롯 화면 ==================== */
+function totalAssetOf(g){
+  let v = g.cash;
+  for(const id in g.holdings){
+    const h = g.holdings[id]; const s = g.stocks.find(x=>x.id===id);
+    if(!s || !h.qty) continue;
+    v += s.mkt==='US' ? h.qty*s.price*g.fx : h.qty*s.price;
+  }
+  return v;
+}
+function netWorthOf(g){ return totalAssetOf(g) - (g.debt||0); }   // 순자산 = 평가자산 - 부채
+function renderSlots(){
+  const slots = loadSlots();
+  const ranked = slots.map((g,i)=>({i, v:g?netWorthOf(g):null})).filter(o=>o.v!==null).sort((a,b)=>b.v-a.v);
+  const rankMap = {}; ranked.forEach((o,k)=>rankMap[o.i]=k+1);
+  $('slotList').innerHTML = slots.map((g,i)=>{
+    if(!g) return `<div class="slot empty">
+      <div class="no">SLOT ${i+1}</div><div class="nm">빈 슬롯</div>
+      <div class="meta">새 캐릭터를 만들어<br>1만원 투자 인생을 시작하세요.</div>
+      <div class="acts"><button class="b-new" data-new="${i}">+ 새 게임</button></div></div>`;
+    const t = netWorthOf(g);
+    const roi = (t/START_CASH-1)*100;
+    const r = rankMap[i];
+    return `<div class="slot">
+      <div class="rank ${r===1?'r1':''}">${r===1?'👑 1위':r+'위'}</div>
+      <div class="no">SLOT ${i+1}</div>
+      <div class="nm">${esc(g.name)}</div>
+      <div class="money">${fmtW(t)}</div>
+      <div class="meta">DAY ${g.day} · 수익률 <b class="${clsOf(roi)}">${sign(roi)}%</b><br>
+        보유종목 ${Object.values(g.holdings).filter(h=>h.qty>0).length}개 · 매매 ${g.stats.trades}회${g.debt>0?` · <b style="color:var(--up)">빚 ${Math.round(g.debt).toLocaleString()}원</b>`:''}</div>
+      <div class="acts"><button class="b-go" data-load="${i}">▶ 이어하기</button><button class="b-del" data-del="${i}">🗑</button></div>
+    </div>`;
+  }).join('');
+}
+function esc(s){ return String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+document.addEventListener('click', e=>{
+  const n=e.target.closest('[data-new]'), l=e.target.closest('[data-load]'), d=e.target.closest('[data-del]');
+  if(n) askName(+n.dataset.new);
+  if(l) startGame(+l.dataset.load);
+  if(d) confirmDelete(+d.dataset.del);
+});
+
+function askName(slot){
+  openModal(`<h2>🧑 새 캐릭터</h2>
+    <p style="color:var(--sub);font-size:13px;margin-top:8px">이름을 정하고 1만원으로 시작합니다.</p>
+    <input class="name-in" id="nameIn" maxlength="10" placeholder="예) 존버킹" autocomplete="off">
+    <button class="big-btn" id="createBtn">🚀 게임 시작 (10,000원)</button>
+    <button class="ghost-btn" onclick="closeModal()">취소</button>`);
+  const inp=$('nameIn'); inp.focus();
+  const go=()=>{
+    const nm=(inp.value||'').trim()||'무명투자자';
+    const slots=loadSlots(); const g=newGame(nm); g.slot=slot; slots[slot]=g; saveSlots(slots);
+    closeModal(); startGame(slot);
+  };
+  $('createBtn').onclick=go;
+  inp.onkeydown=e=>{ if(e.key==='Enter') go(); };
+}
+function confirmDelete(slot){
+  const slots=loadSlots(); if(!slots[slot]) return;
+  openModal(`<h2>🗑 슬롯 삭제</h2>
+    <p style="color:var(--sub);font-size:13.5px;margin:10px 0 4px;line-height:1.7">
+      <b style="color:var(--txt)">${esc(slots[slot].name)}</b> 님의 기록(${fmtW(totalAssetOf(slots[slot]))})이 영구 삭제됩니다.<br>되돌릴 수 없습니다.</p>
+    <button class="big-btn" style="background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff" id="delYes">삭제한다</button>
+    <button class="ghost-btn" onclick="closeModal()">취소</button>`);
+  $('delYes').onclick=()=>{ const s=loadSlots(); s[slot]=null; saveSlots(s); closeModal(); renderSlots(); toast('슬롯을 비웠습니다'); };
+}
+
+/* ==================== 게임 시작/종료 ==================== */
+function startGame(slot){
+  const slots=loadSlots(); const raw=slots[slot]; if(!raw) return;
+  G = raw; G.slot = slot;
+  // 구버전 세이브 보정
+  if(!G.stats) G.stats={trades:0,fee:0,cwin:0,close:0,max:G.cash};
+  if(G.stats.interest==null) G.stats.interest=0;
+  if(G.stats.loans==null) G.stats.loans=0;
+  if(!G.assetHist) G.assetHist=[G.cash];
+  if(G.debt==null) G.debt=0;
+  if(!Array.isArray(G.bank)) G.bank=[];
+  const known = new Set(G.stocks.map(s=>s.id));
+  STOCK_DEF.forEach(d=>{ if(!known.has(d.id)) G.stocks.push({...d,base:d.price,prev:d.price,mom:0,hist:[d.price]}); });
+  G.stocks.forEach(s=>{ if(!s.hist||!s.hist.length) s.hist=[s.price]; s.mom=s.mom||0; });
+
+  showScreen('game');
+  switchTab('kr'); renderAll(); renderNews(); updateTicker();
+  setSpeed(G.speed==null?1:G.speed);
+}
+
+/* ==================== 배속 ==================== */
+function setSpeed(v){
+  if(!G) return;
+  G.speed = v;
+  document.querySelectorAll('#speedBox button').forEach(b=>b.classList.toggle('on', +b.dataset.sp===v));
+  if(timer){ clearInterval(timer); timer=null; }
+  if(v>0) timer = setInterval(tick, Math.round(TICK_MS/v));
+  updateNewsCounter();
+}
+document.querySelectorAll('#speedBox button').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.sp));
+document.addEventListener('keydown', e=>{
+  if(!G || !$('game').classList.contains('on')) return;
+  if($('modal').classList.contains('on')) return;
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if(e.code==='Space'){ e.preventDefault(); setSpeed(G.speed>0?0:1); }
+  else if(e.key==='1') setSpeed(1); else if(e.key==='2') setSpeed(2);
+  else if(e.key==='4') setSpeed(4); else if(e.key==='8') setSpeed(8);
+});
+function updateNewsCounter(){
+  if(!G || !$('newsCounter')) return;
+  const left = NEWS_EVERY - (G.tick % NEWS_EVERY);
+  $('newsCounter').textContent = G.speed===0
+    ? '⏸ 일시정지 중'
+    : `다음 속보까지 ${left}초` + (G.speed>1?` (${G.speed}배속 · 실제 ${(left/G.speed).toFixed(1)}초)`:'');
+}
+function exitGame(){
+  saveGame(true); if(timer) clearInterval(timer); timer=null; G=null;
+  renderSlots(); showScreen('select');
+}
+$('btnExit').onclick=exitGame;
+$('btnSave').onclick=()=>saveGame(false);
+
+/* ==================== 시뮬레이션 ==================== */
+function gauss(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function tick(){
+  if(!G) return;
+  G.tick++;
+  // 환율
+  G.fx = Math.min(1900, Math.max(950, G.fx*(1+gauss()*0.0018)));
+  // 주가
+  G.stocks.forEach(s=>{
+    s.mom = (s.mom||0)*0.90;
+    const chg = s.drift + s.mom + gauss()*s.vol;
+    s.price = Math.max(s.base*0.03, s.price*(1+chg));
+    s.hist.push(s.price); if(s.hist.length>240) s.hist.shift();
+  });
+  // 날짜
+  if(G.tick % TICKS_PER_DAY === 0){
+    G.day++; G.stocks.forEach(s=>s.prev=s.price);
+    chargeInterest();
+  }
+  // AI 속보
+  if(G.tick % NEWS_EVERY === 0) fireNews();
+  // 마진콜 감시
+  checkMargin();
+  // 자산기록 (순자산 기준)
+  const nw = netWorthOf(G);
+  if(nw > G.stats.max) G.stats.max = nw;
+  G.assetHist.push(nw); if(G.assetHist.length>300) G.assetHist.shift();
+  // 자동저장
+  if(G.tick % 10 === 0) saveGame(true);
+
+  renderAll();
+  updateNewsCounter();
+  checkBroke();
+}
+
+/* ==================== 대출 ==================== */
+function creditInfo(){
+  const nw = netWorthOf(G);
+  if(nw >= 2000000) return {g:'AAA', r:0.005};
+  if(nw >=  500000) return {g:'A',   r:0.007};
+  if(nw >=  100000) return {g:'B',   r:0.009};
+  if(nw >=   20000) return {g:'C',   r:0.012};
+  return {g:'D', r:0.018};
+}
+function loanLimit(){ return Math.max(20000, Math.floor(netWorthOf(G)*2)); }
+function loanAvail(){ return Math.max(0, loanLimit() - G.debt); }
+function bankLog(msg){
+  G.bank.unshift({d:G.day, m:msg});
+  if(G.bank.length>40) G.bank.pop();
+}
+function chargeInterest(){
+  if(G.debt <= 0) return;
+  const it = G.debt * creditInfo().r;
+  G.stats.interest += it;
+  if(G.cash >= it){
+    G.cash -= it;
+    bankLog(`💸 이자 ${Math.round(it).toLocaleString()}원 현금 납부`);
+  }else{
+    const rest = it - G.cash;
+    bankLog(`⚠️ 현금 부족 — 이자 ${Math.round(it).toLocaleString()}원 중 ${Math.round(rest).toLocaleString()}원이 원금에 가산(복리)`);
+    G.cash = 0; G.debt += rest;
+  }
+}
+function checkMargin(){
+  if(!G || G.debt <= 0) return;
+  if(netWorthOf(G) >= G.debt*0.15) return;
+  let sold = 0;
+  G.stocks.forEach(s=>{
+    const h = G.holdings[s.id]; if(!h || !h.qty) return;
+    const amt = unitCost(s)*h.qty, fee = amt*feeRate(s);
+    G.cash += amt-fee; G.stats.fee += fee; sold += h.qty;
+    delete G.holdings[s.id];
+  });
+  const pay = Math.min(G.cash, G.debt);
+  G.cash -= pay; G.debt -= pay;
+  if(G.debt < 1) G.debt = 0;
+  if(sold>0 || pay>0){
+    bankLog(`🚨 마진콜 강제청산 — ${sold}주 전량 매도, ${Math.round(pay).toLocaleString()}원 자동 상환`);
+    toast('🚨 마진콜! 담보 부족으로 보유 주식이 전부 청산되었습니다');
+    if(openStockId) refreshTradeModal();
+  }
+}
+function takeLoan(amt){
+  amt = Math.floor(amt);
+  if(amt < 1000) return toast('최소 대출은 1,000원입니다');
+  const av = loanAvail();
+  if(amt > av) return toast(`대출 한도를 넘었습니다 (가능 ${Math.round(av).toLocaleString()}원)`);
+  G.cash += amt; G.debt += amt; G.stats.loans += amt;
+  bankLog(`💰 ${amt.toLocaleString()}원 대출 실행 (일 이자 ${(creditInfo().r*100).toFixed(1)}%)`);
+  toast(`💰 ${amt.toLocaleString()}원 대출 완료`);
+  saveGame(true); renderAll();
+}
+function repayLoan(amt){
+  amt = Math.floor(amt);
+  if(G.debt <= 0) return toast('갚을 빚이 없습니다');
+  if(amt < 1) return;
+  const pay = Math.min(amt, G.debt, G.cash);
+  if(pay < 1) return toast('현금이 부족합니다');
+  G.cash -= pay; G.debt -= pay;
+  if(G.debt < 1) G.debt = 0;
+  bankLog(`✅ ${Math.round(pay).toLocaleString()}원 상환 (잔액 ${Math.round(G.debt).toLocaleString()}원)`);
+  toast(G.debt<=0 ? '🎉 빚을 전부 갚았습니다!' : `✅ ${Math.round(pay).toLocaleString()}원 상환`);
+  saveGame(true); renderAll();
+}
+function renderBank(){
+  if(!G || !$('bkDebt')) return;
+  const ci = creditInfo(), lim = loanLimit(), av = loanAvail();
+  const use = lim>0 ? Math.min(100, G.debt/lim*100) : 0;
+  $('bkDebt').textContent = fmtW(G.debt);
+  $('bkGauge').style.width = use.toFixed(1)+'%';
+  $('bkUse').textContent = use.toFixed(0)+'%';
+  $('bkLimit').textContent = fmtW(lim);
+  const gel = $('bkGrade'); gel.textContent = ci.g+' 등급';
+  gel.className = 'grade'+(ci.g==='D'||ci.g==='C'?' warn':'');
+  $('bkRate').textContent = (ci.r*100).toFixed(1)+' % / DAY';
+  $('bkNext').textContent = fmtW(G.debt*ci.r);
+  $('bkAvail').textContent = fmtW(av);
+  $('bkCash').textContent = fmtW(G.cash);
+  $('bkDebt2').textContent = fmtW(G.debt);
+  $('bkPaid').textContent = fmtW(G.stats.interest);
+  $('bkTotal').textContent = fmtW(G.stats.loans);
+  $('doLoan').disabled = av < 1000;
+  $('doRepay').disabled = G.debt <= 0 || G.cash < 1;
+  $('bankLog').innerHTML = G.bank.length
+    ? G.bank.map(e=>`<div>DAY ${e.d} · ${esc(e.m)}</div>`).join('')
+    : '거래 내역이 없습니다.';
+}
+
+function fireNews(){
+  const n = generateNews();
+  n.day = G.day; n.time = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  // 영향 적용 (mom 감쇠 0.9 → 총 효과 ≈ pct)
+  const imp = (n.pct/100)*0.10;
+  n.targets.forEach(id=>{
+    const s=G.stocks.find(x=>x.id===id); if(!s) return;
+    s.mom += imp*(n.targets.length>1?RNG(0.5,1.3):1);
+  });
+  G.news.unshift(n); if(G.news.length>60) G.news.pop();
+  showFlash(n); renderNews(); updateTicker();
+}
+function showFlash(n){
+  const f=$('flash');
+  f.style.background = n.good ? 'linear-gradient(135deg,#ff2d4d,#b8102b)' : 'linear-gradient(135deg,#2a5fd6,#12307a)';
+  f.innerHTML = `<small>${n.mega?'🚨 초대형 속보':'속보'} · ${esc(n.by)} 생성</small>${esc(n.head)}`;
+  f.classList.add('show');
+  clearTimeout(showFlash.t); showFlash.t=setTimeout(()=>f.classList.remove('show'), 5200);
+}
+function updateTicker(){
+  const t = G.news.slice(0,12).map(n=>`<span>${n.good?'🔺':'🔻'} ${esc(n.head)}</span>`).join('');
+  $('tickerTrack').innerHTML = t || '<span>AI가 첫 속보를 준비 중입니다… 30초마다 새로운 뉴스가 시장을 흔듭니다.</span>';
+}
+
+/* ==================== 렌더 ==================== */
+function renderAll(){
+  const evalV = totalAssetOf(G) - G.cash;
+  const nw = G.cash + evalV - G.debt;
+  const roi = (nw/START_CASH-1)*100;
+  $('uName').textContent = G.name;
+  $('uDay').textContent = `DAY ${G.day}`;
+  $('uCash').textContent = fmtW(G.cash);
+  $('uEval').textContent = fmtW(evalV);
+  $('uDebt').textContent = G.debt>0 ? '-'+fmtW(G.debt) : '없음';
+  $('uDebt').style.color = G.debt>0 ? 'var(--up)' : 'var(--sub)';
+  $('uTotal').textContent = fmtW(nw);
+  $('uRoi').textContent = sign(roi)+'%'; $('uRoi').className='v '+clsOf(roi);
+  $('uFx').textContent = Math.round(G.fx).toLocaleString()+'원/$';
+  renderGrid('KR','gridKR'); renderGrid('US','gridUS');
+  if($('tab-pf').classList.contains('on')) renderPortfolio();
+  if($('tab-bank').classList.contains('on')) renderBank();
+  if(openStockId) refreshTradeModal();
+}
+function sparkSVG(hist, up){
+  const h = hist.slice(-46); if(h.length<2) return '';
+  const mn=Math.min(...h), mx=Math.max(...h), rg=(mx-mn)||1;
+  const pts = h.map((v,i)=>`${(i/(h.length-1)*100).toFixed(2)},${(34-(v-mn)/rg*30).toFixed(2)}`).join(' ');
+  const c = up?'#ff4d5e':'#4d8cff';
+  return `<svg class="spark" viewBox="0 0 100 38" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    <polyline points="0,38 ${pts} 100,38" fill="${c}" opacity=".10" stroke="none"/></svg>`;
+}
+function renderGrid(mkt, elId){
+  const el=$(elId);
+  el.innerHTML = G.stocks.filter(s=>s.mkt===mkt).map(s=>{
+    const d = (s.price/s.prev-1)*100;
+    const h = G.holdings[s.id];
+    const px = mkt==='US' ? fmtU(s.price) : Math.round(s.price).toLocaleString()+'원';
+    const sub = mkt==='US' ? `<span style="font-size:11px;color:var(--sub)"> ≈${Math.round(s.price*G.fx).toLocaleString()}원</span>` : '';
+    return `<div class="card" data-stock="${s.id}">
+      <div class="row1"><span class="ico">${s.ico}</span><span class="nm">${s.name}</span><span class="sec">${s.sec}</span></div>
+      <div class="px">${px}${sub}</div>
+      <div class="chg ${clsOf(d)}">${d>0?'▲':d<0?'▼':'—'} ${sign(d)}% <span style="color:var(--sub);font-weight:600">(전일대비)</span></div>
+      ${sparkSVG(s.hist, d>=0)}
+      ${h&&h.qty?`<div class="hold">보유 ${h.qty.toLocaleString()}주 · 평가손익 ${holdPLText(s,h)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function holdPLText(s,h){
+  const pl = (s.price-h.avg)*h.qty * (s.mkt==='US'?G.fx:1);
+  const rt = (s.price/h.avg-1)*100;
+  return `<span class="${clsOf(pl)}">${pl>=0?'+':''}${Math.round(pl).toLocaleString()}원 (${sign(rt)}%)</span>`;
+}
+function renderPortfolio(){
+  const rows = G.stocks.filter(s=>G.holdings[s.id]&&G.holdings[s.id].qty>0).map(s=>{
+    const h=G.holdings[s.id];
+    const cur = s.mkt==='US'? s.price*G.fx : s.price;
+    const avg = s.mkt==='US'? h.avg*G.fx : h.avg;
+    const pl = (s.price-h.avg)*h.qty*(s.mkt==='US'?G.fx:1);
+    const rt = (s.price/h.avg-1)*100;
+    return `<tr><td>${s.ico} ${s.name}<br><span style="font-size:10.5px;color:var(--sub)">${s.mkt==='US'?'해외':'국내'} · ${s.sec}</span></td>
+      <td>${h.qty.toLocaleString()}주</td>
+      <td>${Math.round(avg).toLocaleString()}</td>
+      <td>${Math.round(cur).toLocaleString()}</td>
+      <td>${Math.round(cur*h.qty).toLocaleString()}</td>
+      <td class="${clsOf(pl)}">${pl>=0?'+':''}${Math.round(pl).toLocaleString()}<br><span style="font-size:11px">${sign(rt)}%</span></td>
+      <td><button class="mini-btn" data-stock="${s.id}">거래</button></td></tr>`;
+  }).join('');
+  $('holdTable').innerHTML = rows
+    ? `<table><thead><tr><th>종목</th><th>수량</th><th>평단(원)</th><th>현재가(원)</th><th>평가액</th><th>평가손익</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty-msg">아직 보유한 종목이 없습니다.<br>국내/해외 탭에서 종목을 눌러 매수해보세요.</div>`;
+  $('pfMax').textContent = fmtW(G.stats.max);
+  $('pfTrades').textContent = G.stats.trades;
+  $('pfCasino').textContent = `${G.stats.cwin}승 ${G.stats.close}패`;
+  $('pfFee').textContent = fmtW(G.stats.fee);
+  $('pfInt').textContent = fmtW(G.stats.interest||0);
+  drawAssetChart();
+}
+function drawAssetChart(){
+  const cv=$('assetChart'); if(!cv) return;
+  const w=cv.clientWidth||600, h=172; cv.width=w*devicePixelRatio; cv.height=h*devicePixelRatio;
+  const c=cv.getContext('2d'); c.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); c.clearRect(0,0,w,h);
+  const d=G.assetHist.slice(-200); if(d.length<2) return;
+  const mn=Math.min(...d,START_CASH*0.9), mx=Math.max(...d), rg=(mx-mn)||1;
+  const X=i=>10+i/(d.length-1)*(w-20), Y=v=>h-16-(v-mn)/rg*(h-32);
+  c.strokeStyle='#1b2740'; c.lineWidth=1;
+  for(let i=0;i<=3;i++){ const y=16+i*((h-32)/3); c.beginPath(); c.moveTo(10,y); c.lineTo(w-10,y); c.stroke(); }
+  const up = d[d.length-1]>=START_CASH;
+  const col = up?'#ff4d5e':'#4d8cff';
+  const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,col+'55'); g.addColorStop(1,col+'00');
+  c.beginPath(); c.moveTo(X(0),Y(d[0])); d.forEach((v,i)=>c.lineTo(X(i),Y(v)));
+  c.lineTo(X(d.length-1),h); c.lineTo(X(0),h); c.closePath(); c.fillStyle=g; c.fill();
+  c.beginPath(); c.moveTo(X(0),Y(d[0])); d.forEach((v,i)=>c.lineTo(X(i),Y(v)));
+  c.strokeStyle=col; c.lineWidth=2; c.stroke();
+  c.fillStyle='#8fa1c4'; c.font='11px sans-serif';
+  c.fillText(Math.round(mx).toLocaleString()+'원', 12, 13);
+  c.fillText(Math.round(mn).toLocaleString()+'원', 12, h-4);
+}
+function renderNews(){
+  $('newsList').innerHTML = G.news.length ? G.news.map(n=>`
+    <div class="news-item ${n.good?'good':'bad'}">
+      <div class="h">${n.good?'🔺':'🔻'} ${esc(n.head)}</div>
+      <div class="m"><span class="tag ${n.good?'g':'b'}">${esc(n.scope)} ${n.good?'호재':'악재'} ${sign(n.pct)}%</span>
+        DAY ${n.day} ${n.time} · 🤖 ${esc(n.by)} 자동 생성</div></div>`).join('')
+    : `<div class="empty-msg">AI가 30초마다 속보를 생성합니다.<br>첫 속보를 기다리는 중…</div>`;
+}
+
+/* ==================== 탭 ==================== */
+function switchTab(t){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  document.querySelectorAll('.tab').forEach(d=>d.classList.toggle('on', d.id==='tab-'+t));
+  if(t==='pf') renderPortfolio();
+  if(t==='bank') renderBank();
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+
+/* ==================== 매매 모달 ==================== */
+let openStockId=null, tradeQty=1;
+const FEE_KR=0.001, FEE_US=0.002;
+
+document.addEventListener('click', e=>{
+  const c=e.target.closest('[data-stock]');
+  if(c && G) openTrade(c.dataset.stock);
+});
+function openTrade(id){
+  openStockId=id; tradeQty=1;
+  const s=G.stocks.find(x=>x.id===id); if(!s) return;
+  openModal(`<h2>${s.ico} ${s.name}</h2>
+    <div style="font-size:11.5px;color:var(--sub);margin-top:3px">${s.mkt==='US'?'해외':'국내'} · ${s.sec} · ${s.id}</div>
+    <canvas class="chartbox" id="stockChart"></canvas>
+    <div id="tradeInfo"></div>
+    <div class="qty">
+      <button data-q="-10">-10</button><button data-q="-1">-1</button>
+      <input id="qtyIn" type="number" min="1" value="1">
+      <button data-q="1">+1</button><button data-q="10">+10</button>
+      <button data-q="max" style="flex:0 0 66px">최대매수</button><button data-q="all" style="flex:0 0 66px">전량매도</button>
+    </div>
+    <div id="tradeCalc"></div>
+    <div class="trade-btns"><button class="buy" id="doBuy">매수</button><button class="sell" id="doSell">매도</button></div>
+    <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+  $('modal').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
+    const v=b.dataset.q;
+    if(v==='max'){ tradeQty=Math.max(1, maxBuy(s)); }
+    else if(v==='all'){ const h=G.holdings[s.id]; tradeQty=Math.max(1, h?h.qty:1); }
+    else tradeQty=Math.max(1, tradeQty+parseInt(v,10));
+    $('qtyIn').value=tradeQty; refreshTradeModal();
+  });
+  $('qtyIn').oninput=()=>{ tradeQty=Math.max(1, parseInt($('qtyIn').value||'1',10)); refreshTradeModal(); };
+  $('doBuy').onclick=()=>doTrade(s,'buy');
+  $('doSell').onclick=()=>doTrade(s,'sell');
+  refreshTradeModal();
+}
+function unitCost(s){ return s.mkt==='US' ? s.price*G.fx : s.price; }
+function feeRate(s){ return s.mkt==='US'?FEE_US:FEE_KR; }
+function maxBuy(s){ return Math.floor(G.cash / (unitCost(s)*(1+feeRate(s)))); }
+function refreshTradeModal(){
+  if(!openStockId) return;
+  const s=G.stocks.find(x=>x.id===openStockId); if(!s || !$('tradeInfo')) return;
+  const d=(s.price/s.prev-1)*100;
+  const h=G.holdings[s.id];
+  $('tradeInfo').innerHTML = `
+    <div class="kv"><span>현재가</span><b class="${clsOf(d)}">${s.mkt==='US'?fmtU(s.price):Math.round(s.price).toLocaleString()+'원'} (${sign(d)}%)</b></div>
+    ${s.mkt==='US'?`<div class="kv"><span>원화 환산</span><b>${Math.round(s.price*G.fx).toLocaleString()}원 (환율 ${Math.round(G.fx).toLocaleString()})</b></div>`:''}
+    <div class="kv"><span>보유 수량</span><b>${h&&h.qty?h.qty.toLocaleString()+'주':'없음'}</b></div>
+    ${h&&h.qty?`<div class="kv"><span>평가손익</span><b>${holdPLText(s,h)}</b></div>`:''}
+    <div class="kv"><span>내 현금</span><b style="color:var(--gold)">${fmtW(G.cash)}</b></div>`;
+  const cost = unitCost(s)*tradeQty;
+  const fee = cost*feeRate(s);
+  $('tradeCalc').innerHTML = `
+    <div class="kv"><span>주문 금액</span><b>${Math.round(cost).toLocaleString()}원</b></div>
+    <div class="kv"><span>수수료 (${(feeRate(s)*100).toFixed(1)}%)</span><b>${Math.round(fee).toLocaleString()}원</b></div>
+    <div class="kv"><span>매수 총액 / 매도 수령</span><b>${Math.round(cost+fee).toLocaleString()}원 / ${Math.round(cost-fee).toLocaleString()}원</b></div>`;
+  $('doBuy').disabled = G.cash < cost+fee;
+  $('doSell').disabled = !h || h.qty < tradeQty;
+  drawStockChart(s);
+}
+function drawStockChart(s){
+  const cv=$('stockChart'); if(!cv) return;
+  const w=cv.clientWidth||400,h=172; cv.width=w*devicePixelRatio; cv.height=h*devicePixelRatio;
+  const c=cv.getContext('2d'); c.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); c.clearRect(0,0,w,h);
+  const d=s.hist.slice(-140); if(d.length<2) return;
+  const mn=Math.min(...d),mx=Math.max(...d),rg=(mx-mn)||1;
+  const X=i=>8+i/(d.length-1)*(w-16), Y=v=>h-14-(v-mn)/rg*(h-28);
+  c.strokeStyle='#1b2740'; c.lineWidth=1;
+  for(let i=0;i<=3;i++){ const y=14+i*((h-28)/3); c.beginPath(); c.moveTo(8,y); c.lineTo(w-8,y); c.stroke(); }
+  const up=d[d.length-1]>=d[0], col=up?'#ff4d5e':'#4d8cff';
+  const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,col+'55'); g.addColorStop(1,col+'00');
+  c.beginPath(); c.moveTo(X(0),Y(d[0])); d.forEach((v,i)=>c.lineTo(X(i),Y(v)));
+  c.lineTo(X(d.length-1),h); c.lineTo(X(0),h); c.closePath(); c.fillStyle=g; c.fill();
+  c.beginPath(); c.moveTo(X(0),Y(d[0])); d.forEach((v,i)=>c.lineTo(X(i),Y(v)));
+  c.strokeStyle=col; c.lineWidth=2; c.stroke();
+  c.fillStyle='#8fa1c4'; c.font='11px sans-serif';
+  const f=s.mkt==='US'?(v=>'$'+v.toFixed(2)):(v=>Math.round(v).toLocaleString());
+  c.fillText(f(mx),10,12); c.fillText(f(mn),10,h-3);
+}
+function doTrade(s, kind){
+  const cost=unitCost(s)*tradeQty, fee=cost*feeRate(s);
+  if(kind==='buy'){
+    if(G.cash < cost+fee) return toast('현금이 부족합니다');
+    G.cash -= cost+fee;
+    const h=G.holdings[s.id]||{qty:0,avg:0};
+    h.avg = (h.avg*h.qty + s.price*tradeQty)/(h.qty+tradeQty);
+    h.qty += tradeQty; G.holdings[s.id]=h;
+    G.stats.trades++; G.stats.fee+=fee;
+    toast(`🔺 ${s.name} ${tradeQty}주 매수`);
+  }else{
+    const h=G.holdings[s.id];
+    if(!h || h.qty<tradeQty) return toast('보유 수량이 부족합니다');
+    G.cash += cost-fee; h.qty -= tradeQty;
+    if(h.qty<=0) delete G.holdings[s.id];
+    G.stats.trades++; G.stats.fee+=fee;
+    toast(`🔻 ${s.name} ${tradeQty}주 매도`);
+  }
+  saveGame(true); renderAll(); refreshTradeModal();
+}
+
+/* ==================== 카지노 ==================== */
+const SYM = [
+  {e:'🍒',w:30,p:3},{e:'🍋',w:25,p:5},{e:'🔔',w:18,p:10},{e:'🍀',w:12,p:20},
+  {e:'💎',w:8,p:50},{e:'👑',w:5,p:100},{e:'7️⃣',w:2,p:500}
+];
+const SYM_TOTAL = SYM.reduce((a,b)=>a+b.w,0);
+function rollSym(){ let r=Math.random()*SYM_TOTAL; for(const s of SYM){ r-=s.w; if(r<=0) return s; } return SYM[0]; }
+
+function readBet(inputId){
+  const v = Math.floor(Number($(inputId).value)||0);
+  if(v < 1000){ toast('최소 베팅은 1,000원입니다'); return 0; }
+  if(v > G.cash){ toast('현금이 부족합니다'); return 0; }
+  return v;
+}
+document.querySelectorAll('[data-slotbet]').forEach(b=>b.onclick=()=>{
+  if(!G) return; const v=b.dataset.slotbet;
+  $('slotBet').value = v==='max' ? Math.max(1000,Math.floor(G.cash)) : v;
+});
+document.querySelectorAll('[data-oebet]').forEach(b=>b.onclick=()=>{
+  if(!G) return; const v=b.dataset.oebet;
+  $('oeBet').value = v==='max' ? Math.max(1000,Math.floor(G.cash)) : v;
+});
+
+let spinning=false;
+$('slotSpin').onclick=()=>{
+  if(!G||spinning) return;
+  const bet=readBet('slotBet'); if(!bet) return;
+  G.cash -= bet; spinning=true; $('slotSpin').disabled=true;
+  $('slotResult').textContent=''; renderAll();
+  const reels=[$('r0'),$('r1'),$('r2')];
+  reels.forEach(r=>r.classList.add('spin'));
+  const final=[rollSym(),rollSym(),rollSym()];
+  const iv=setInterval(()=>reels.forEach(r=>r.textContent=rollSym().e), 70);
+  const stop=i=>setTimeout(()=>{
+    reels[i].textContent=final[i].e; reels[i].classList.remove('spin');
+    if(i===2){ clearInterval(iv); settleSlot(bet,final); spinning=false; $('slotSpin').disabled=false; }
+  }, 700+i*520);
+  [0,1,2].forEach(stop);
+  setTimeout(()=>clearInterval(iv), 700+2*520+30);
+};
+function settleSlot(bet, f){
+  let mult=0, msg='';
+  if(f[0].e===f[1].e && f[1].e===f[2].e){ mult=f[0].p; msg=`🎉 ${f[0].e}×3 잭팟! ×${mult}`; }
+  else if(f[0].e===f[1].e||f[1].e===f[2].e||f[0].e===f[2].e){ mult=1.3; msg='✨ 2개 일치! ×1.3'; }
+  const win=Math.floor(bet*mult);
+  if(win>0){
+    G.cash+=win; G.stats.cwin++;
+    $('slotResult').innerHTML=`<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`;
+    if(mult>=20) toast(`🎊 대박! ${win.toLocaleString()}원 획득!`);
+  }else{
+    G.stats.close++;
+    $('slotResult').innerHTML=`<span style="color:#ff7d8c">💀 꽝… -${bet.toLocaleString()}원</span>`;
+  }
+  saveGame(true); renderAll(); checkBroke();
+}
+
+let oeBusy=false;
+function playOE(mode, pickNum){
+  if(!G||oeBusy) return;
+  const bet=readBet('oeBet'); if(!bet) return;
+  G.cash-=bet; oeBusy=true; renderAll();
+  ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=true);
+  $('oeResult').textContent='';
+  const n=RI(1,10);
+  let t=0;
+  const iv=setInterval(()=>{ $('oeDice').textContent=RI(1,10); if(++t>14){ clearInterval(iv); reveal(); } }, 80);
+  function reveal(){
+    $('oeDice').textContent=n;
+    const isOdd = n%2===1;
+    let win=0, msg='';
+    if(mode==='exact'){
+      if(n===pickNum){ win=Math.floor(bet*8); msg=`🎯 정타 적중! (${n}) ×8`; }
+      else msg=`❌ 결과 ${n} — 빗나감`;
+    }else{
+      const hit = (mode==='odd')===isOdd;
+      if(hit){ win=Math.floor(bet*1.9); msg=`✅ ${n} (${isOdd?'홀':'짝'}) 적중! ×1.9`; }
+      else msg=`❌ ${n} (${isOdd?'홀':'짝'}) — 빗나감`;
+    }
+    if(win>0){ G.cash+=win; G.stats.cwin++;
+      $('oeResult').innerHTML=`<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`;
+      if(mode==='exact') toast(`🎯 정타 성공! ${win.toLocaleString()}원!`);
+    }else{ G.stats.close++;
+      $('oeResult').innerHTML=`<span style="color:#ff7d8c">${msg} → -${bet.toLocaleString()}원</span>`; }
+    ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=false);
+    oeBusy=false; saveGame(true); renderAll(); checkBroke();
+  }
+}
+$('betOdd').onclick=()=>playOE('odd');
+$('betEven').onclick=()=>playOE('even');
+$('betExact').onclick=()=>playOE('exact', parseInt($('oePick').value,10));
+
+/* 은행 버튼 */
+document.querySelectorAll('[data-loan]').forEach(b=>b.onclick=()=>{
+  if(!G) return; const v=b.dataset.loan;
+  $('loanAmt').value = v==='max' ? Math.floor(loanAvail()) : v;
+});
+document.querySelectorAll('[data-repay]').forEach(b=>b.onclick=()=>{
+  if(!G) return; const v=b.dataset.repay;
+  $('repayAmt').value = v==='max' ? Math.ceil(Math.min(G.debt, G.cash)) : v;
+});
+$('doLoan').onclick = ()=>takeLoan(Number($('loanAmt').value)||0);
+$('doRepay').onclick = ()=>repayLoan(Number($('repayAmt').value)||0);
+
+function checkBroke(){
+  if(!G) return;
+  const noStock = Object.values(G.holdings).every(h=>!h.qty);
+  if(!noStock) return;
+  // 주식도 없고, 현금으로 아무것도 못 하고, 빚을 갚을 길이 없으면 파산
+  if(G.debt > 0 && netWorthOf(G) < 0 && loanAvail() < 1000) return gameOver();
+  if(G.cash < 1000 && loanAvail() < 1000) return gameOver();
+}
+let overShown=false;
+function gameOver(){
+  if(overShown) return; overShown=true;
+  openModal(`<h2>💀 파산</h2>
+    <p style="color:var(--sub);font-size:13.5px;margin:10px 0;line-height:1.8">
+      <b style="color:var(--txt)">${esc(G.name)}</b> 님, 자산이 바닥났습니다.<br>
+      DAY ${G.day} · 최고 순자산 <b style="color:var(--gold)">${fmtW(G.stats.max)}</b> · 매매 ${G.stats.trades}회<br>
+      카지노 ${G.stats.cwin}승 ${G.stats.close}패${G.debt>0?`<br>미상환 부채 <b style="color:var(--up)">${fmtW(G.debt)}</b> · 낸 이자 ${fmtW(G.stats.interest)}`:''}</p>
+    <button class="big-btn" id="reBtn">🔁 1만원으로 재도전</button>
+    <button class="ghost-btn" id="outBtn">슬롯 선택으로</button>`);
+  $('reBtn').onclick=()=>{
+    const slot=G.slot, name=G.name; const slots=loadSlots();
+    const g=newGame(name); g.slot=slot; slots[slot]=g; saveSlots(slots);
+    overShown=false; closeModal(); startGame(slot); toast('새 판을 시작합니다');
+  };
+  $('outBtn').onclick=()=>{ overShown=false; closeModal(); exitGame(); };
+}
+
+/* ==================== 공통 UI ==================== */
+function openModal(html){ $('mbox').innerHTML=html; $('modal').classList.add('on'); }
+function closeModal(){ $('modal').classList.remove('on'); openStockId=null; }
+$('modal').onclick=e=>{ if(e.target.id==='modal') closeModal(); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1900);
+}
+window.addEventListener('beforeunload',()=>{ if(G) saveGame(true); });
+window.closeModal=closeModal;
+
+/* 시작 */
+bootAuth();
+</script>
+</body>
+</html>

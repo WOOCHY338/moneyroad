@@ -32,10 +32,63 @@ input{font-family:inherit}
   padding:26px 24px;width:100%;max-width:400px;margin-top:30px;text-align:center}
 .loginbox h2{font-size:17px;margin-bottom:6px}
 .loginbox p{font-size:12.5px;color:var(--sub);line-height:1.8;margin-bottom:18px}
-.gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;
-  padding:13px;border-radius:11px;font-weight:800;font-size:15px;border:1px solid #dadce0}
-.gbtn:hover{background:#f1f3f4}
-.gbtn svg{width:19px;height:19px;flex:0 0 19px}
+.authtabs{display:flex;gap:6px;background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px}
+.authtabs button{flex:1;padding:10px;border-radius:9px;font-weight:800;font-size:14px;background:transparent;color:var(--sub)}
+.authtabs button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00}
+.auth-in{width:100%;background:#0a1020;border:1px solid var(--line);color:var(--txt);padding:13px;
+  border-radius:11px;font-size:15px;font-weight:600;margin-bottom:9px;text-align:left}
+.auth-in:focus{outline:none;border-color:var(--gold)}
+.auth-in::placeholder{color:#55668c;font-weight:500}
+.pwwarn{background:#2a1220;border:1px solid #57263a;color:#ffb3c0;font-size:11.5px;line-height:1.75;
+  padding:10px 12px;border-radius:10px;margin-top:16px;text-align:left}
+.setlink{background:none;color:#6b7c9e;font-size:11.5px;margin-top:12px;text-decoration:underline}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0a1020;
+  border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:10px 0}
+.toggle .tl{font-size:13.5px;font-weight:700;text-align:left}
+.toggle .tl small{display:block;color:var(--sub);font-size:11px;font-weight:500;margin-top:3px}
+.sw{flex:0 0 52px;height:29px;border-radius:99px;background:#243050;position:relative;transition:.2s;border:none;cursor:pointer}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;background:#7b8cb0;transition:.2s}
+.sw.on{background:linear-gradient(135deg,var(--mint),#12b48c)}
+.sw.on::after{left:26px;background:#04261d}
+
+/* ===== 공지 ===== */
+#noticeBar{display:flex;align-items:center;gap:11px;padding:10px 14px;font-size:13px;font-weight:700;
+  border-bottom:1px solid var(--line);line-height:1.5}
+#noticeBar[hidden]{display:none}
+#noticeBar.info{background:linear-gradient(100deg,#123a4d,#0d2433);color:#9fe6ff}
+#noticeBar.warn{background:linear-gradient(100deg,#4d2a12,#33200d);color:#ffd39f}
+#noticeBar.event{background:linear-gradient(100deg,#3d1a4d,#280d33);color:#eaaeff}
+#noticeBar .nb-tag{flex:0 0 auto;background:rgba(255,255,255,.14);padding:3px 9px;border-radius:99px;font-size:10.5px;font-weight:900;letter-spacing:.5px}
+#noticeBar .nb-tx{flex:1;min-width:0}
+#noticeBar .nb-x{flex:0 0 auto;background:none;color:inherit;opacity:.65;font-size:16px;padding:0 4px;line-height:1}
+#noticeBar .nb-x:hover{opacity:1}
+
+/* ===== 커뮤니티 ===== */
+.chatlist{height:330px;overflow-y:auto;background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:9px}
+.msg{display:flex;gap:9px;align-items:flex-start}
+.msg .av{flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:#243050;display:flex;align-items:center;
+  justify-content:center;font-weight:900;font-size:13px;color:#8fa1c4}
+.msg.me .av{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00}
+.msg.admin .av{background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff}
+.msg .body{min-width:0;flex:1}
+.msg .who{font-size:11.5px;font-weight:800;color:var(--sub);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.msg.admin .who{color:#ff8a9c}
+.msg .who .badge{background:#3a1220;color:#ff8a9c;font-size:9.5px;padding:1px 6px;border-radius:99px;font-weight:900}
+.msg .who time{font-weight:500;color:#5b6b8c;font-size:10.5px}
+.msg .tx{font-size:13.5px;line-height:1.55;margin-top:2px;word-break:break-word;white-space:pre-wrap}
+.msg .del{background:none;color:#5b6b8c;font-size:11px;padding:0 3px}
+.msg .del:hover{color:var(--up)}
+.chatbar{display:flex;gap:8px;margin-top:11px}
+.chatbar input{flex:1;min-width:0;background:#0a1020;border:1px solid var(--line);color:var(--txt);
+  padding:12px;border-radius:11px;font-size:14px}
+.chatbar input:focus{outline:none;border-color:var(--gold)}
+.chatbar button{flex:0 0 auto;padding:12px 20px;border-radius:11px;font-weight:900;font-size:14px;
+  background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00}
+.chatempty{color:var(--sub);font-size:13px;text-align:center;margin:auto;line-height:1.9}
+.adminbox{background:#1a0e16;border:1px solid #4a2030;border-radius:12px;padding:13px;margin:12px 0}
+.adminbox h3{color:#ff8a9c;font-size:13.5px;margin-bottom:9px}
+.codebox{background:#050a14;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:11px;
+  color:#9fe6ff;white-space:pre-wrap;word-break:break-all;max-height:150px;overflow:auto;font-family:Consolas,monospace;line-height:1.6}
 .guestbtn{width:100%;margin-top:10px;padding:13px;border-radius:11px;font-weight:800;font-size:15px;
   background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
 .guestbtn:hover{border-color:var(--mint);color:var(--mint)}
@@ -44,7 +97,8 @@ input{font-family:inherit}
 .loginnote{font-size:11px;color:#6b7c9e;margin-top:16px;line-height:1.75}
 .profile{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
   border-radius:99px;padding:6px 6px 6px 14px;margin-bottom:4px}
-.profile img{width:30px;height:30px;border-radius:50%;background:var(--panel2)}
+.profile #pfImg{width:30px;height:30px;border-radius:50%;background:#243050;display:flex;
+  align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 30px}
 .profile .pn{font-size:13.5px;font-weight:800}
 .profile .pe{font-size:10.5px;color:var(--sub)}
 .profile button{background:var(--panel2);border:1px solid var(--line);padding:6px 11px;border-radius:99px;font-size:11.5px;font-weight:700}
@@ -246,31 +300,39 @@ tr:last-child td{border-bottom:none}
     <p>1 만 원 으 로   시 작 하 는   인 생 역 전</p>
   </div>
   <div class="loginbox">
-    <h2>로그인하고 시작하기</h2>
-    <p>계정별로 저장 슬롯 6칸이 따로 관리됩니다.</p>
-    <button class="gbtn" id="googleBtn">
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-      </svg>
-      Google 계정으로 로그인
-    </button>
-    <div id="gsiBtn" style="display:none;justify-content:center"></div>
+    <div class="authtabs">
+      <button id="tabLogin" class="on">로그인</button>
+      <button id="tabSignup">회원가입</button>
+    </div>
+
+    <div id="formLogin">
+      <input class="auth-in" id="liUser" placeholder="아이디" maxlength="12" autocomplete="off">
+      <input class="auth-in" id="liPw" type="password" placeholder="비밀번호" maxlength="30" autocomplete="off">
+      <button class="big-btn" id="doLogin">로그인</button>
+    </div>
+
+    <div id="formSignup" hidden>
+      <input class="auth-in" id="suUser" placeholder="아이디 (2~12자)" maxlength="12" autocomplete="off">
+      <input class="auth-in" id="suPw" type="password" placeholder="비밀번호 (4자 이상)" maxlength="30" autocomplete="off">
+      <input class="auth-in" id="suPw2" type="password" placeholder="비밀번호 확인" maxlength="30" autocomplete="off">
+      <button class="big-btn" id="doSignup">계정 만들기</button>
+    </div>
+
     <div class="logindiv">또는</div>
     <button class="guestbtn" id="guestBtn">🎮 게스트로 바로 시작</button>
-    <div class="loginnote" id="loginNote">
-      게스트로 시작하면 이 브라우저에만 기록이 저장됩니다.
+
+    <div class="pwwarn">
+      ⚠️ <b>실제로 쓰는 비밀번호는 입력하지 마세요.</b><br>
+      이 계정은 서버가 없는 게임 전용 계정이라, 이 브라우저 안에만 저장됩니다.
     </div>
-    <button id="gcidLink" style="background:none;color:#6b7c9e;font-size:11.5px;margin-top:10px;text-decoration:underline">⚙️ Google 로그인 설정</button>
+    <button class="setlink" id="setLink">⚙️ 설정 (광고 · 계정관리)</button>
   </div>
 </div>
 
 <!-- ============ 유저 선택 ============ -->
 <div id="select" class="screen">
   <div class="profile" id="profileBar">
-    <img id="pfImg" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Ccircle cx='15' cy='15' r='15' fill='%23223049'/%3E%3C/svg%3E">
+    <div id="pfImg" aria-hidden="true"></div>
     <div style="text-align:left"><div class="pn" id="pfName">게스트</div><div class="pe" id="pfMail">로컬 저장</div></div>
     <button id="logoutBtn">로그아웃</button>
   </div>
@@ -302,11 +364,13 @@ tr:last-child td{border-bottom:none}
         <button data-sp="0">⏸</button><button data-sp="1" class="on">1x</button>
         <button data-sp="2">2x</button><button data-sp="4">4x</button><button data-sp="8">8x</button>
       </div>
+      <button class="mini-btn" id="btnSet">⚙️</button>
       <button class="mini-btn" id="btnSave">💾 저장</button>
       <button class="mini-btn" id="btnExit">🚪 나가기</button>
     </div>
   </div>
   <div class="ticker"><div class="lbl">속보</div><div class="track" id="tickerTrack"></div></div>
+  <div id="noticeBar" hidden></div>
 
   <nav>
     <button class="on" data-tab="kr">🇰🇷 국내주식</button>
@@ -315,6 +379,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="bank">🏦 은행/대출</button>
     <button data-tab="casino">🎰 카지노</button>
     <button data-tab="news">📰 뉴스</button>
+    <button data-tab="community">💬 커뮤니티</button>
   </nav>
 
   <main>
@@ -424,6 +489,18 @@ tr:last-child td{border-bottom:none}
 
     <div class="tab" id="tab-news">
       <div class="panel"><h3>AI 실시간 속보 <small id="newsCounter">다음 속보까지 30초</small></h3><div id="newsList"></div></div>
+    </div>
+
+    <div class="tab" id="tab-community">
+      <div class="panel">
+        <h3>💬 커뮤니티 <small id="commMode">-</small></h3>
+        <div class="chatlist" id="chatList"></div>
+        <div class="chatbar">
+          <input id="chatIn" maxlength="200" placeholder="메시지를 입력하세요 (200자)" autocomplete="off">
+          <button id="chatSend">전송</button>
+        </div>
+        <div class="warnbox" id="commNote"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -601,15 +678,26 @@ function newGame(name){
 /* ==================== 저장 ==================== */
 let SLOTS = [null,null,null,null,null,null];
 let storageWarned = false;
-function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+/* 저장소는 메모리를 원본으로 두고 localStorage에 비춘다.
+   시크릿 모드처럼 저장소가 막힌 환경에서도 그 세션 동안은 정상 동작한다. */
+const MEM = Object.create(null);
+function lsGet(k){
+  if(k in MEM) return MEM[k];
+  try{ const v = localStorage.getItem(k); MEM[k] = v; return v; }catch(e){ return null; }
+}
 function lsSet(k,v){
+  MEM[k] = v;
   try{ localStorage.setItem(k,v); return true; }
   catch(e){
     if(!storageWarned){ storageWarned=true; toast('⚠️ 브라우저 저장소가 차단되어 진행이 영구 저장되지 않습니다'); }
     return false;
   }
 }
-function slotKey(){ return SAVE_KEY + ':' + (AUTH && AUTH.mode==='google' ? 'g_'+AUTH.id : 'guest'); }
+function lsDel(k){
+  delete MEM[k];
+  try{ localStorage.removeItem(k); }catch(e){}
+}
+function slotKey(){ return SAVE_KEY + ':' + (AUTH && AUTH.mode==='user' ? 'u_'+AUTH.id : 'guest'); }
 function loadUserSlots(){                          // 계정이 바뀌면 그 계정의 6칸을 불러온다
   try{ const a=JSON.parse(lsGet(slotKey())); if(Array.isArray(a)&&a.length===6){ SLOTS=a; return; } }catch(e){}
   SLOTS = [null,null,null,null,null,null];
@@ -624,16 +712,42 @@ function saveGame(silent){
   if(!silent) toast('💾 저장 완료');
 }
 
-/* ==================== 로그인 ====================
-   Google 로그인을 켜려면 아래 GOOGLE_CLIENT_ID에 클라이언트 ID를 넣으세요.
-   발급: console.cloud.google.com → API 및 서비스 → 사용자 인증 정보
-        → OAuth 클라이언트 ID(웹 애플리케이션) 만들기
-        → '승인된 JavaScript 원본'에 이 페이지 주소를 등록
-   비워두면 Google 버튼이 설정 안내를 띄우고, 게스트 로그인은 그대로 동작합니다.      */
-const GCID_KEY = 'MONEYROAD_GCID';
-let GOOGLE_CLIENT_ID = lsGet(GCID_KEY) || '';   // 게임 화면에서 붙여넣어도 되고, 여기에 직접 적어도 됩니다
+/* ==================== 계정 / 로그인 ====================
+   서버가 없는 브라우저 전용 계정입니다. 비밀번호는 솔트를 붙여 SHA-256으로 해시해
+   저장하며 원문은 남기지 않습니다. 다만 데이터가 브라우저 안에 있으므로 실제 보안은
+   아닙니다 — 사용자에게 실제 비밀번호를 쓰지 말라고 화면에서 경고합니다.          */
 const AUTH_KEY = 'MONEYROAD_AUTH_V1';
-let AUTH = null, googleReady = false;
+const USERS_KEY = 'MONEYROAD_USERS_V1';
+let AUTH = null;
+
+let USERS = (function(){                           // 메모리가 원본 — 저장소가 막혀도 로그인은 동작한다
+  try{ const o=JSON.parse(lsGet(USERS_KEY)); if(o && typeof o==='object') return o; }catch(e){}
+  return {};
+})();
+function loadUsers(){ return USERS; }
+function saveUsers(o){ USERS = o; lsSet(USERS_KEY, JSON.stringify(o)); }
+function randSalt(){
+  try{
+    const a = new Uint8Array(12); crypto.getRandomValues(a);
+    return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){
+    let s=''; for(let i=0;i<24;i++) s += Math.floor(Math.random()*16).toString(16);
+    return s;
+  }
+}
+async function hashPw(pw, salt){
+  const data = salt + '|' + pw;
+  try{
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+    return 's:' + Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){                                   // crypto.subtle을 못 쓰는 환경 대비
+    let h=5381, h2=52711;
+    for(let i=0;i<data.length;i++) h = ((h<<5)+h+data.charCodeAt(i))>>>0;
+    for(let i=data.length-1;i>=0;i--) h2 = ((h2<<5)+h2+data.charCodeAt(i))>>>0;
+    return 'f:' + h.toString(16) + h2.toString(16);
+  }
+}
+const uid = n => n.trim().toLowerCase();
 
 function showScreen(id){
   ['login','select','game'].forEach(s=>$(s).classList.toggle('on', s===id));
@@ -645,131 +759,94 @@ function setAuth(a){
 }
 function renderProfile(){
   if(!AUTH) return;
-  const guest = AUTH.mode!=='google';
+  const guest = AUTH.mode !== 'user';
   $('pfName').textContent = AUTH.name || '게스트';
-  $('pfMail').textContent = guest ? '게스트 · 이 브라우저에만 저장' : (AUTH.email||'Google 계정');
-  if(AUTH.pic) $('pfImg').src = AUTH.pic;
+  $('pfMail').textContent = guest ? '게스트 · 기록이 남지 않을 수 있습니다' : '게임 계정 · 이 브라우저에 저장';
+  $('pfImg').textContent = (AUTH.name||'?').trim().charAt(0).toUpperCase();
+  $('pfImg').style.background = guest ? '#243050' : 'linear-gradient(135deg,var(--gold),#ff9d2e)';
+  $('pfImg').style.color = guest ? '#8fa1c4' : '#301f00';
 }
 function logout(){
   if(G) saveGame(true);
   if(timer){ clearInterval(timer); timer=null; }
   G = null; AUTH = null;
-  try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
-  if(googleReady && window.google) try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+  lsDel(AUTH_KEY);
   SLOTS = [null,null,null,null,null,null];
+  ['liUser','liPw','suUser','suPw','suPw2'].forEach(i=>{ if($(i)) $(i).value=''; });
   showScreen('login'); toast('로그아웃했습니다');
 }
-function parseJwt(t){
-  try{
-    const b = t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-    return JSON.parse(decodeURIComponent(atob(b).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-  }catch(e){ return null; }
-}
-function onGoogleCred(res){
-  const p = parseJwt(res.credential);
-  if(!p || !p.sub) return toast('Google 로그인 정보를 읽지 못했습니다');
-  setAuth({mode:'google', id:p.sub, name:p.name||p.email||'Google 사용자', email:p.email||'', pic:p.picture||''});
-  toast(`👋 ${p.name||''}님 환영합니다`);
-}
-function initGoogle(){
-  if(!GOOGLE_CLIENT_ID) return;
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
-  s.onload = ()=>{
-    try{
-      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleCred, auto_select:false});
-      google.accounts.id.renderButton($('gsiBtn'), {theme:'outline', size:'large', width:340, text:'signin_with', locale:'ko'});
-      googleReady = true;
-      $('googleBtn').style.display = 'none';
-      $('gsiBtn').style.display = 'flex';
-    }catch(e){ googleReady = false; }
-  };
-  s.onerror = ()=>{ googleReady = false; $('loginNote').textContent = 'Google 로그인 스크립트를 불러오지 못했습니다. 게스트로 시작해주세요.'; };
-  document.head.appendChild(s);
-}
-function googleSetupGuide(){
-  const origin = location.origin.startsWith('http') ? location.origin : '(웹에 올린 뒤의 주소)';
-  const cur = GOOGLE_CLIENT_ID;
-  openModal(`<h2>🔧 Google 로그인 설정</h2>
-    <p style="color:var(--sub);font-size:13px;margin:10px 0 12px;line-height:1.85">
-      구글 로그인은 <b style="color:var(--txt)">계정 소유자만</b> 발급할 수 있는 클라이언트 ID가 필요합니다.
-      아래 4단계는 한 번만 하면 되고, 마지막에 ID를 여기 붙여넣으면 바로 켜집니다.</p>
-    <div style="font-size:12.5px;line-height:1.95;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
-      <div style="margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid var(--line);color:var(--sub);font-size:11.5px">
-        콘솔이 영어로 보이면 주소 끝에 <b style="color:var(--gold)">?hl=ko</b> 를 붙이세요 →
-        <a href="https://console.cloud.google.com/?hl=ko" target="_blank" rel="noopener"
-           style="color:var(--mint);font-weight:700">한국어로 콘솔 열기</a><br>
-        아래 괄호는 영어 화면에서 찾을 메뉴 이름입니다.
-      </div>
-      1. 프로젝트 만들기 <span style="color:var(--sub)">(New Project)</span><br>
-      2. <b>API 및 서비스</b> <span style="color:var(--sub)">(APIs &amp; Services)</span> →
-         <b>OAuth 동의 화면</b> <span style="color:var(--sub)">(OAuth consent screen)</span><br>
-      &nbsp;&nbsp;&nbsp;앱 이름·이메일 입력, 대상은 <b>외부</b> <span style="color:var(--sub)">(External)</span><br>
-      3. <b>사용자 인증 정보</b> <span style="color:var(--sub)">(Credentials)</span> →
-         <b>만들기</b> <span style="color:var(--sub)">(Create credentials)</span> →
-         <b>OAuth 클라이언트 ID</b> <span style="color:var(--sub)">(OAuth client ID)</span> →
-         <b>웹 애플리케이션</b> <span style="color:var(--sub)">(Web application)</span><br>
-      4. <b>승인된 JavaScript 원본</b> <span style="color:var(--sub)">(Authorized JavaScript origins)</span>
-         에 아래 주소를 그대로 추가
-      <div style="margin:7px 0 2px;display:flex;gap:6px;align-items:center">
-        <code id="originTxt" style="flex:1;background:#131d33;border:1px solid var(--line);border-radius:7px;
-          padding:8px 10px;font-size:12.5px;color:var(--gold);word-break:break-all">${esc(origin)}</code>
-        <button class="mini-btn" id="copyOrigin">복사</button>
-      </div>
-    </div>
-    <p style="color:var(--sub);font-size:12px;margin:13px 0 5px">발급받은 클라이언트 ID를 붙여넣으세요</p>
-    <input class="name-in" id="gcidIn" style="margin:0 0 10px;font-size:13px;text-align:left"
-      placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com" value="${esc(cur)}" autocomplete="off">
-    <button class="big-btn" id="saveGcid">💾 저장하고 Google 로그인 켜기</button>
-    ${cur?`<button class="ghost-btn" id="clearGcid">등록된 ID 삭제</button>`:''}
-    <p style="color:var(--sub);font-size:12px;margin-top:13px;line-height:1.8">
-      설정 없이도 <b style="color:var(--mint)">게스트 로그인</b>으로 모든 기능을 그대로 쓸 수 있습니다.</p>
-    <button class="ghost-btn" id="guestFromModal">🎮 게스트로 시작하기</button>
-    <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
-  $('copyOrigin').onclick = ()=>{
-    try{ navigator.clipboard.writeText(origin); toast('📋 주소를 복사했습니다'); }
-    catch(e){ toast('복사에 실패했습니다 — 직접 선택해서 복사해주세요'); }
-  };
-  $('saveGcid').onclick = ()=>{
-    const v = ($('gcidIn').value||'').trim();
-    if(!v) return toast('클라이언트 ID를 입력해주세요');
-    if(!/\.apps\.googleusercontent\.com$/.test(v))
-      return toast('형식이 올바르지 않습니다 — .apps.googleusercontent.com 으로 끝나야 합니다');
-    GOOGLE_CLIENT_ID = v; lsSet(GCID_KEY, v);
-    closeModal(); toast('✅ 저장했습니다. Google 로그인을 켜는 중…');
-    initGoogle();
-  };
-  if($('clearGcid')) $('clearGcid').onclick = ()=>{
-    GOOGLE_CLIENT_ID=''; try{ localStorage.removeItem(GCID_KEY); }catch(e){}
-    closeModal(); toast('등록된 ID를 삭제했습니다');
-    $('googleBtn').style.display=''; $('gsiBtn').style.display='none'; googleReady=false;
-  };
-  $('guestFromModal').onclick = ()=>{ closeModal(); guestLogin(); };
-}
-function guestLogin(){ setAuth({mode:'guest', id:'guest', name:'게스트', email:'', pic:''}); }
+function guestLogin(){ setAuth({mode:'guest', id:'guest', name:'게스트'}); }
 
-$('googleBtn').onclick = ()=>{
-  if(!GOOGLE_CLIENT_ID) return googleSetupGuide();
-  if(!googleReady) return toast('Google 로그인을 준비 중입니다. 잠시 후 다시 시도해주세요');
-  try{ google.accounts.id.prompt(); }catch(e){ toast('Google 로그인 창을 열지 못했습니다'); }
-};
+function switchAuthTab(which){
+  const login = which === 'login';
+  $('tabLogin').classList.toggle('on', login);
+  $('tabSignup').classList.toggle('on', !login);
+  $('formLogin').hidden = !login;
+  $('formSignup').hidden = login;
+}
+$('tabLogin').onclick = ()=>switchAuthTab('login');
+$('tabSignup').onclick = ()=>switchAuthTab('signup');
+
+async function doSignup(){
+  const name = ($('suUser').value||'').trim();
+  const pw = $('suPw').value||'', pw2 = $('suPw2').value||'';
+  if(name.length < 2) return toast('아이디는 2자 이상이어야 합니다');
+  if(/[<>&"'\s]/.test(name)) return toast('아이디에 공백이나 특수문자는 쓸 수 없습니다');
+  if(pw.length < 4) return toast('비밀번호는 4자 이상이어야 합니다');
+  if(pw !== pw2) return toast('비밀번호가 서로 다릅니다');
+  const users = loadUsers();
+  if(users[uid(name)]) return toast('이미 있는 아이디입니다');
+  const salt = randSalt();
+  users[uid(name)] = { name, salt, hash: await hashPw(pw, salt) };
+  saveUsers(users);
+  toast(`🎉 ${name}님, 계정이 만들어졌습니다`);
+  setAuth({mode:'user', id:uid(name), name});
+}
+async function doLogin(){
+  const name = ($('liUser').value||'').trim();
+  const pw = $('liPw').value||'';
+  if(!name || !pw) return toast('아이디와 비밀번호를 입력해주세요');
+  const u = loadUsers()[uid(name)];
+  if(!u) return toast('없는 아이디입니다');
+  if(await hashPw(pw, u.salt) !== u.hash) return toast('비밀번호가 틀렸습니다');
+  toast(`👋 ${u.name}님 환영합니다`);
+  setAuth({mode:'user', id:uid(name), name:u.name});
+}
+$('doSignup').onclick = doSignup;
+$('doLogin').onclick = doLogin;
 $('guestBtn').onclick = guestLogin;
 $('logoutBtn').onclick = logout;
-$('gcidLink').onclick = googleSetupGuide;
+$('liPw').onkeydown = e=>{ if(e.key==='Enter') doLogin(); };
+$('liUser').onkeydown = e=>{ if(e.key==='Enter') $('liPw').focus(); };
+$('suPw2').onkeydown = e=>{ if(e.key==='Enter') doSignup(); };
 
 function bootAuth(){
-  initGoogle(); initAds();
+  initAds(); initNotice(); startChatPoll(); loadAdminRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
-    if(a && a.mode){ AUTH = a; loadUserSlots(); renderProfile(); renderSlots(); return showScreen('select'); }
+    if(a && a.mode){
+      if(a.mode !== 'user' || loadUsers()[a.id]){    // 삭제된 계정의 세션은 무시
+        AUTH = a; loadUserSlots(); renderProfile(); renderSlots(); return showScreen('select');
+      }
+    }
   }catch(e){}
   showScreen('login');
 }
 
+
 /* ==================== 배너 광고 ====================
-   AdSense를 쓰려면 아래 3개 값을 채우세요. 비워두면 자체 배너가 돌아갑니다.
-   (AdSense는 승인된 도메인에서만 노출되며, 로컬 파일에서는 보이지 않습니다)     */
-const ADSENSE = { client:'', slotTop:'', slotBottom:'' };
+   ⚙️ 설정에서 게시자 ID(ca-pub-…)와 광고 단위 ID를 등록하면 실제 Google AdSense가 붙고,
+   등록 전까지는 같은 자리에 자체 배너가 돌아갑니다. 광고는 언제든 끌 수 있습니다.
+   (AdSense는 승인된 도메인에서만 노출되며 file:// 로컬 파일에서는 보이지 않습니다)   */
+const ADSENSE_KEY = 'MONEYROAD_ADSENSE_V1';
+const ADS_ON_KEY  = 'MONEYROAD_ADS_ON';
+function loadAdsense(){
+  try{ const o=JSON.parse(lsGet(ADSENSE_KEY)); if(o && typeof o==='object') return o; }catch(e){}
+  return { client:'', slotTop:'', slotBottom:'' };
+}
+let ADSENSE = loadAdsense();
+let adsOn = (lsGet(ADS_ON_KEY) || 'on') !== 'off';
+let adRotTimer = null, adsenseMounted = false;
 const HOUSE_ADS = [
   {ico:'🍗', h:'치킨 한 마리 값으로 시작하는 투자', s:'머니로드 프리미엄 — 지금 가입하면 0원', cta:'받기'},
   {ico:'📈', h:'수익률 999% 비법 전격 공개!', s:'※ 광고입니다. 세상에 그런 건 없습니다', cta:'자세히'},
@@ -791,25 +868,452 @@ function renderAds(){
   $('adTop').innerHTML = adHTML(HOUSE_ADS[adIdx % HOUSE_ADS.length]);
   $('adBottom').innerHTML = adHTML(HOUSE_ADS[(adIdx+3) % HOUSE_ADS.length]);
 }
+function adsenseReady(){ return !!(ADSENSE.client && ADSENSE.slotTop && ADSENSE.slotBottom); }
 function mountAdsense(){
-  const s = document.createElement('script');
-  s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+ADSENSE.client;
-  s.async = true; s.crossOrigin = 'anonymous';
-  document.head.appendChild(s);
   const unit = slot=>`<ins class="adsbygoogle" style="display:block;width:100%;max-width:728px;height:60px"
-      data-ad-client="${ADSENSE.client}" data-ad-slot="${slot}" data-full-width-responsive="true"></ins>`;
+      data-ad-client="${esc(ADSENSE.client)}" data-ad-slot="${esc(slot)}" data-full-width-responsive="true"></ins>`;
   $('adTop').innerHTML = unit(ADSENSE.slotTop);
   $('adBottom').innerHTML = unit(ADSENSE.slotBottom);
-  s.onload = ()=>{ try{ (adsbygoogle=window.adsbygoogle||[]).push({}); (adsbygoogle=window.adsbygoogle||[]).push({}); }catch(e){} };
+  const push = ()=>{ try{ (window.adsbygoogle = window.adsbygoogle || []).push({});
+                           (window.adsbygoogle = window.adsbygoogle || []).push({}); }catch(e){} };
+  if(adsenseMounted) return push();               // 스크립트는 한 번만 싣는다
+  adsenseMounted = true;
+  const s = document.createElement('script');
+  s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADSENSE.client);
+  s.async = true; s.crossOrigin = 'anonymous';
+  s.onload = push;
+  s.onerror = ()=>{ toast('AdSense 스크립트를 불러오지 못했습니다 — 자체 배너로 대체합니다'); startHouseAds(); };
+  document.head.appendChild(s);
+}
+function startHouseAds(){
+  renderAds();
+  if(adRotTimer) clearInterval(adRotTimer);
+  adRotTimer = setInterval(()=>{ adIdx++; renderAds(); }, 9000);
+}
+function applyAds(){
+  const top = $('adTop'), bot = $('adBottom');
+  if(adRotTimer){ clearInterval(adRotTimer); adRotTimer = null; }
+  if(!adsOn){
+    top.style.display = 'none'; bot.style.display = 'none';
+    top.innerHTML = ''; bot.innerHTML = '';
+    document.body.style.paddingBottom = '20px';
+    return;
+  }
+  top.style.display = ''; bot.style.display = '';
+  document.body.style.paddingBottom = '';
+  if(adsenseReady()) mountAdsense(); else startHouseAds();
+}
+function setAdsOn(v){
+  adsOn = !!v; lsSet(ADS_ON_KEY, adsOn ? 'on' : 'off');
+  applyAds();
+  toast(adsOn ? '📢 광고를 켰습니다' : '🔕 광고를 껐습니다');
 }
 function initAds(){
-  if(ADSENSE.client && ADSENSE.slotTop){ return mountAdsense(); }
-  renderAds();
-  setInterval(()=>{ adIdx++; renderAds(); }, 9000);
+  applyAds();
   document.addEventListener('click', e=>{
     const a = e.target.closest('[data-ad]');
     if(a) toast('📢 게임 속 가상 광고입니다 — 실제로는 아무 일도 없습니다');
   });
+}
+
+/* ==================== 설정 ==================== */
+function openSettings(){
+  openModal(`<h2>⚙️ 설정</h2>
+
+    <div class="toggle">
+      <span class="tl">배너 광고 표시<small>상단·하단 배너를 켜고 끕니다</small></span>
+      <button class="sw ${adsOn?'on':''}" id="swAds" role="switch" aria-checked="${adsOn}" aria-label="배너 광고 표시"></button>
+    </div>
+
+    <h3 style="font-size:13.5px;margin:18px 0 4px">Google AdSense 연결</h3>
+    <p style="color:var(--sub);font-size:11.5px;line-height:1.75;margin-bottom:10px">
+      아래 값을 등록하면 배너 자리에 실제 AdSense 광고가 들어갑니다. 비워두면 자체 배너가 표시됩니다.<br>
+      게시자 ID는 <b>adsense.google.com</b> → 계정 → 설정에서, 광고 단위 ID는 <b>광고 → 광고 단위별</b>에서
+      디스플레이 광고를 만들면 나옵니다. <b style="color:#ffb3c0">사이트 승인 후에만 노출됩니다.</b></p>
+    <input class="auth-in" id="asClient" placeholder="ca-pub-0000000000000000" value="${esc(ADSENSE.client)}" autocomplete="off">
+    <input class="auth-in" id="asTop" placeholder="상단 광고 단위 ID (숫자)" value="${esc(ADSENSE.slotTop)}" autocomplete="off">
+    <input class="auth-in" id="asBottom" placeholder="하단 광고 단위 ID (숫자)" value="${esc(ADSENSE.slotBottom)}" autocomplete="off">
+    <button class="big-btn" id="saveAs">💾 AdSense 저장</button>
+    ${adsenseReady()?`<button class="ghost-btn" id="clearAs">등록 해제 (자체 배너로)</button>`:''}
+
+    <button class="big-btn" id="openAdmin" style="background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff;margin-top:18px">🔑 운영자 패널 (공지 · 커뮤니티 관리)</button>
+
+    <h3 style="font-size:13.5px;margin:20px 0 4px">이 브라우저의 계정</h3>
+    <div id="userList" style="font-size:12.5px;color:var(--sub);line-height:1.9;background:#0a1020;
+      border:1px solid var(--line);border-radius:10px;padding:10px 12px"></div>
+
+    <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+
+  $('swAds').onclick = ()=>{
+    setAdsOn(!adsOn);
+    $('swAds').classList.toggle('on', adsOn);
+    $('swAds').setAttribute('aria-checked', String(adsOn));
+  };
+  $('saveAs').onclick = ()=>{
+    const c = ($('asClient').value||'').trim(), t = ($('asTop').value||'').trim(), b = ($('asBottom').value||'').trim();
+    if(!c || !t || !b) return toast('세 칸을 모두 입력해주세요');
+    if(!/^ca-pub-\d{10,}$/.test(c)) return toast('게시자 ID 형식이 올바르지 않습니다 (ca-pub-로 시작)');
+    ADSENSE = { client:c, slotTop:t, slotBottom:b };
+    lsSet(ADSENSE_KEY, JSON.stringify(ADSENSE));
+    closeModal(); applyAds(); toast('✅ AdSense를 등록했습니다');
+  };
+  if($('clearAs')) $('clearAs').onclick = ()=>{
+    ADSENSE = { client:'', slotTop:'', slotBottom:'' };
+    lsDel(ADSENSE_KEY);
+    closeModal(); applyAds(); toast('등록을 해제했습니다');
+  };
+
+  $('openAdmin').onclick = ()=>{ closeModal(); openAdmin(); };
+
+  const users = loadUsers(), names = Object.keys(users);
+  $('userList').innerHTML = names.length
+    ? names.map(k=>`<div style="display:flex;align-items:center;gap:8px">
+        <span style="flex:1;color:var(--txt)">👤 ${esc(users[k].name)}</span>
+        <button class="mini-btn" data-deluser="${esc(k)}" style="padding:4px 9px;font-size:11px">삭제</button></div>`).join('')
+    : '아직 만들어진 계정이 없습니다.';
+  $('userList').querySelectorAll('[data-deluser]').forEach(b=>b.onclick=()=>{
+    const k = b.dataset.deluser, u = loadUsers();
+    if(AUTH && AUTH.mode==='user' && AUTH.id===k) return toast('로그인 중인 계정은 삭제할 수 없습니다');
+    const nm = u[k] ? u[k].name : k;
+    delete u[k]; saveUsers(u);
+    lsDel(SAVE_KEY+':u_'+k);
+    toast(`${nm} 계정과 저장 기록을 삭제했습니다`);
+    openSettings();
+  });
+}
+$('setLink').onclick = openSettings;
+$('btnSet').onclick = openSettings;
+
+/* ==================== 공지 ====================
+   전체 공지는 사이트에 올린 notice.json 을 읽어 표시합니다(서버 불필요).
+   운영자 패널에서 내용을 만들고 GitHub에서 그 파일만 바꾸면 모든 접속자에게 반영됩니다.
+   로컬 공지는 이 브라우저에서만 보이는 미리보기용입니다.                        */
+const NOTICE_LOCAL_KEY = 'MONEYROAD_NOTICE_LOCAL';
+const NOTICE_SEEN_KEY  = 'MONEYROAD_NOTICE_SEEN';
+let NOTICE = null;
+
+async function fetchNotice(){
+  try{
+    const r = await fetch('notice.json', {cache:'no-store'});
+    if(r.ok){
+      const j = await r.json();
+      if(j && j.on !== false && j.text) return {text:String(j.text), type:j.type||'info', id:String(j.id||j.text), src:'global'};
+    }
+  }catch(e){}                                   // 파일이 없거나 file:// 환경이면 조용히 넘어간다
+  try{
+    const j = JSON.parse(lsGet(NOTICE_LOCAL_KEY));
+    if(j && j.on !== false && j.text) return {text:String(j.text), type:j.type||'info', id:String(j.id||j.text), src:'local'};
+  }catch(e){}
+  return null;
+}
+function renderNotice(){
+  const bar = $('noticeBar');
+  if(!NOTICE || lsGet(NOTICE_SEEN_KEY) === NOTICE.id){ bar.hidden = true; return; }
+  const label = NOTICE.type==='warn' ? '주의' : NOTICE.type==='event' ? '이벤트' : '공지';
+  bar.className = NOTICE.type;
+  bar.innerHTML = `<span class="nb-tag">${label}${NOTICE.src==='local'?' (로컬)':''}</span>
+    <span class="nb-tx">${esc(NOTICE.text)}</span>
+    <button class="nb-x" id="nbClose" aria-label="공지 닫기">✕</button>`;
+  bar.hidden = false;
+  $('nbClose').onclick = ()=>{ lsSet(NOTICE_SEEN_KEY, NOTICE.id); bar.hidden = true; };
+}
+async function initNotice(){ NOTICE = await fetchNotice(); renderNotice(); }
+
+/* ==================== 커뮤니티 ====================
+   기본은 로컬 모드(이 브라우저 안에서만 보임)입니다.
+   운영자 패널에서 Supabase 주소와 anon key를 넣으면 모든 기기가 같은 글을 봅니다.   */
+const CHAT_KEY = 'MONEYROAD_CHAT_V1';
+const COMM_KEY = 'MONEYROAD_COMM_CFG';
+function loadComm(){
+  try{ const o=JSON.parse(lsGet(COMM_KEY)); if(o && typeof o==='object') return o; }catch(e){}
+  return { mode:'local', url:'', key:'', table:'messages' };
+}
+let COMM = loadComm();
+let chatTimer = null, chatBusy = false, lastChatSig = '';
+const commOnline = ()=> COMM.mode==='supabase' && COMM.url && COMM.key;
+
+function localMsgs(){ try{ const a=JSON.parse(lsGet(CHAT_KEY)); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function saveLocalMsgs(a){ lsSet(CHAT_KEY, JSON.stringify(a.slice(-200))); }
+
+async function fetchMsgs(){
+  if(!commOnline()) return localMsgs();
+  const u = `${COMM.url.replace(/\/$/,'')}/rest/v1/${encodeURIComponent(COMM.table||'messages')}?select=*&order=id.desc&limit=80`;
+  const r = await fetch(u, {headers:{apikey:COMM.key, Authorization:'Bearer '+COMM.key}});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const rows = await r.json();
+  return rows.reverse().map(x=>({id:x.id, user:x.username, text:x.text, at:x.created_at, admin:!!x.is_admin}));
+}
+async function pushMsg(text){
+  const who = AUTH ? AUTH.name : '게스트';
+  const admin = !!adminOn;
+  if(!commOnline()){
+    const a = localMsgs();
+    a.push({id:'l'+a.length+'_'+new Date().getTime(), user:who, text, at:new Date().toISOString(), admin});
+    saveLocalMsgs(a); return;
+  }
+  const u = `${COMM.url.replace(/\/$/,'')}/rest/v1/${encodeURIComponent(COMM.table||'messages')}`;
+  const r = await fetch(u, {
+    method:'POST',
+    headers:{apikey:COMM.key, Authorization:'Bearer '+COMM.key, 'Content-Type':'application/json', Prefer:'return=minimal'},
+    body: JSON.stringify({username:who, text, is_admin:admin})
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status+' — 테이블/권한 설정을 확인하세요');
+}
+async function delMsg(id){
+  if(!commOnline()){ saveLocalMsgs(localMsgs().filter(m=>String(m.id)!==String(id))); return renderChat(); }
+  const u = `${COMM.url.replace(/\/$/,'')}/rest/v1/${encodeURIComponent(COMM.table||'messages')}?id=eq.${encodeURIComponent(id)}`;
+  try{
+    const r = await fetch(u, {method:'DELETE', headers:{apikey:COMM.key, Authorization:'Bearer '+COMM.key}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    toast('삭제했습니다'); renderChat();
+  }catch(e){ toast('삭제 실패: '+e.message); }
+}
+function msgHTML(m){
+  const me = AUTH && m.user === AUTH.name;
+  const t = (()=>{ try{ return new Date(m.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } })();
+  return `<div class="msg ${m.admin?'admin':(me?'me':'')}">
+    <div class="av">${esc((m.user||'?').charAt(0).toUpperCase())}</div>
+    <div class="body">
+      <div class="who">${esc(m.user||'익명')}${m.admin?'<span class="badge">운영자</span>':''}<time>${t}</time>
+        ${adminOn?`<button class="del" data-delmsg="${esc(String(m.id))}">삭제</button>`:''}</div>
+      <div class="tx">${esc(m.text||'')}</div>
+    </div></div>`;
+}
+async function renderChat(force){
+  const box = $('chatList'); if(!box) return;
+  $('commMode').textContent = commOnline() ? '🌐 전체 공개 (모든 기기 공유)' : '💾 로컬 모드 (이 브라우저에서만)';
+  $('commNote').innerHTML = commOnline()
+    ? '모든 접속자가 같은 글을 봅니다. 개인정보나 비밀번호는 적지 마세요.'
+    : '⚠️ 지금은 <b>로컬 모드</b>라 여기 쓴 글이 다른 기기에는 보이지 않습니다.<br>운영자 패널에서 Supabase를 연결하면 모두가 같은 글을 보게 됩니다.';
+  if(chatBusy) return;
+  chatBusy = true;
+  let msgs = [];
+  try{ msgs = await fetchMsgs(); }
+  catch(e){
+    box.innerHTML = `<div class="chatempty">불러오지 못했습니다 — ${esc(e.message)}<br>운영자 패널에서 연결 정보를 확인해주세요.</div>`;
+    chatBusy = false; return;
+  }
+  chatBusy = false;
+  const sig = msgs.map(m=>m.id).join(',') + '|' + adminOn;
+  if(!force && sig === lastChatSig) return;      // 바뀐 게 없으면 다시 그리지 않는다(스크롤 튐 방지)
+  lastChatSig = sig;
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+  box.innerHTML = msgs.length ? msgs.map(msgHTML).join('')
+    : '<div class="chatempty">아직 글이 없습니다.<br>첫 메시지를 남겨보세요!</div>';
+  box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>delMsg(b.dataset.delmsg));
+  if(atBottom) box.scrollTop = box.scrollHeight;
+}
+async function sendChat(){
+  const inp = $('chatIn'); const text = (inp.value||'').trim();
+  if(!text) return;
+  if(text.length > 200) return toast('200자를 넘을 수 없습니다');
+  inp.value = ''; inp.disabled = true;
+  try{ await pushMsg(text); lastChatSig=''; await renderChat(true); }
+  catch(e){ toast('전송 실패: '+e.message); inp.value = text; }
+  inp.disabled = false; inp.focus();
+}
+$('chatSend').onclick = sendChat;
+$('chatIn').onkeydown = e=>{ if(e.key==='Enter') sendChat(); };
+function startChatPoll(){
+  if(chatTimer) clearInterval(chatTimer);
+  chatTimer = setInterval(()=>{ if($('tab-community').classList.contains('on')) renderChat(); }, 5000);
+}
+
+/* ==================== 운영자 패널 ==================== */
+/* 운영자 비밀번호의 기준은 저장소에 올린 admin.json 입니다.
+   그 파일은 저장소 주인만 바꿀 수 있으므로, 접속자가 제멋대로 운영자를 자칭할 수 없습니다.
+   admin.json이 아직 없으면 이 브라우저에서만 쓰는 임시 잠금으로 동작하고, 그 사실을 화면에 알립니다. */
+const ADMIN_KEY = 'MONEYROAD_ADMIN_V1';
+let adminOn = false, ADMIN_REMOTE = null, adminRemoteTried = false;
+
+async function loadAdminRemote(){
+  if(adminRemoteTried) return ADMIN_REMOTE;
+  adminRemoteTried = true;
+  try{
+    const r = await fetch('admin.json', {cache:'no-store'});
+    if(r.ok){
+      const j = await r.json();
+      if(j && j.salt && j.hash) ADMIN_REMOTE = {salt:String(j.salt), hash:String(j.hash)};
+    }
+  }catch(e){}
+  return ADMIN_REMOTE;
+}
+function adminLocalRec(){ try{ return JSON.parse(lsGet(ADMIN_KEY)); }catch(e){ return null; } }
+async function adminUnlock(pw){
+  if(pw.length < 4) return '비밀번호는 4자 이상이어야 합니다';
+  const remote = await loadAdminRemote();
+  if(remote){                                    // 저장소에 등록된 비밀번호가 기준
+    if(await hashPw(pw, remote.salt) !== remote.hash) return '운영자 비밀번호가 틀렸습니다';
+    adminOn = true; return null;
+  }
+  const rec = adminLocalRec();                   // admin.json이 없을 때만 로컬 임시 잠금
+  if(!rec){
+    const salt = randSalt();
+    lsSet(ADMIN_KEY, JSON.stringify({salt, hash: await hashPw(pw, salt)}));
+    adminOn = true; return null;
+  }
+  if(await hashPw(pw, rec.salt) !== rec.hash) return '운영자 비밀번호가 틀렸습니다';
+  adminOn = true; return null;
+}
+async function makeAdminJson(pw){                // 패널에서 admin.json 내용을 만들어준다
+  const salt = randSalt();
+  return JSON.stringify({salt, hash: await hashPw(pw, salt)}, null, 2);
+}
+function openAdmin(){
+  if(!adminOn){
+    const remote = ADMIN_REMOTE;
+    const first = !remote && !adminLocalRec();
+    openModal(`<h2>🔑 운영자 패널</h2>
+      <p style="color:var(--sub);font-size:12.5px;margin:10px 0;line-height:1.8">
+        ${remote ? '저장소에 등록된 운영자 비밀번호를 입력하세요.'
+          : first ? '아직 <b style="color:var(--gold)">admin.json</b>이 없습니다. 지금 입력하는 값이 이 브라우저의 임시 비밀번호가 됩니다.'
+                  : '운영자 비밀번호를 입력하세요.'}</p>
+      <input class="auth-in" id="admPw" type="password" placeholder="운영자 비밀번호 (4자 이상)" maxlength="30" autocomplete="off">
+      <button class="big-btn" id="admGo">${first?'등록하고 열기':'열기'}</button>
+      ${remote?'':`<div class="warnbox" style="margin-top:12px">
+        ⚠️ <b>admin.json을 올리기 전에는</b> 누구나 자기 브라우저에서 운영자 비밀번호를 정할 수 있습니다.<br>
+        패널 안에서 파일 내용을 만들어 저장소에 올리면 그때부터 사장님만 열 수 있습니다.</div>`}
+      <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+    const go = async ()=>{
+      const e = await adminUnlock($('admPw').value||'');
+      if(e) return toast(e);
+      closeModal(); openAdmin();
+    };
+    $('admGo').onclick = go;
+    $('admPw').onkeydown = ev=>{ if(ev.key==='Enter') go(); };
+    return;
+  }
+
+  const cur = (()=>{ try{ return JSON.parse(lsGet(NOTICE_LOCAL_KEY)) || {}; }catch(e){ return {}; } })();
+  openModal(`<h2>🔑 운영자 패널</h2>
+
+    <div class="adminbox">
+      <h3>📢 공지 띄우기</h3>
+      <textarea class="auth-in" id="ntText" rows="3" maxlength="160" placeholder="상단에 띄울 공지 내용"
+        style="resize:vertical;font-family:inherit">${esc(cur.text||'')}</textarea>
+      <div style="display:flex;gap:7px;margin-bottom:9px">
+        <select class="auth-in" id="ntType" style="margin:0">
+          <option value="info">공지 (파랑)</option>
+          <option value="warn">주의 (주황)</option>
+          <option value="event">이벤트 (보라)</option>
+        </select>
+        <button class="mini-btn" id="ntOff" style="flex:0 0 auto;padding:0 14px">내리기</button>
+      </div>
+      <button class="big-btn" id="ntPreview">이 브라우저에 미리 띄우기</button>
+      <p style="color:var(--sub);font-size:11.5px;margin:12px 0 6px;line-height:1.75">
+        <b style="color:var(--txt)">모든 접속자에게 띄우려면</b> 아래 내용을 저장소의
+        <b style="color:var(--gold)">notice.json</b> 파일에 넣으면 됩니다.</p>
+      <div class="codebox" id="ntJson"></div>
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <button class="mini-btn" id="ntCopy" style="flex:1">📋 JSON 복사</button>
+        <a class="mini-btn" id="ntEdit" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">GitHub에서 편집</a>
+      </div>
+    </div>
+
+    <div class="adminbox">
+      <h3>💬 커뮤니티 연결 (Supabase)</h3>
+      <p style="color:var(--sub);font-size:11.5px;line-height:1.75;margin-bottom:9px">
+        연결하면 모든 기기가 같은 글을 봅니다. supabase.com은 <b>GitHub 계정으로 가입</b>할 수 있습니다.<br>
+        프로젝트를 만들고 SQL Editor에 아래를 붙여넣은 뒤, Settings → API의 <b>URL</b>과 <b>anon key</b>를 넣으세요.</p>
+      <div class="codebox" id="sqlBox">create table messages (
+  id bigint generated always as identity primary key,
+  username text not null,
+  text text not null,
+  is_admin boolean default false,
+  created_at timestamptz default now()
+);
+alter table messages enable row level security;
+create policy "read" on messages for select using (true);
+create policy "write" on messages for insert with check (true);
+create policy "wipe" on messages for delete using (true);</div>
+      <button class="mini-btn" id="sqlCopy" style="width:100%;margin:8px 0 12px">📋 SQL 복사</button>
+      <input class="auth-in" id="cmUrl" placeholder="https://xxxxx.supabase.co" value="${esc(COMM.url||'')}" autocomplete="off">
+      <input class="auth-in" id="cmKey" placeholder="anon public key" value="${esc(COMM.key||'')}" autocomplete="off">
+      <button class="big-btn" id="cmSave">🌐 연결하고 전체 공개로 전환</button>
+      ${commOnline()?`<button class="ghost-btn" id="cmOff">연결 끊고 로컬 모드로</button>`:''}
+      <button class="ghost-btn" id="cmClear">커뮤니티 글 전체 삭제</button>
+    </div>
+
+    <div class="adminbox">
+      <h3>🔐 운영자 비밀번호 고정하기</h3>
+      <p style="color:var(--sub);font-size:11.5px;line-height:1.75;margin-bottom:9px">
+        ${ADMIN_REMOTE ? '현재 저장소의 <b style="color:var(--gold)">admin.json</b>이 기준입니다. 비밀번호를 바꾸려면 새로 만들어 올리세요.'
+          : '아직 <b style="color:#ffb3c0">admin.json이 없어 누구나 운영자를 자칭할 수 있습니다.</b> 아래로 파일을 만들어 저장소에 올리세요.'}</p>
+      <input class="auth-in" id="admNew" type="password" placeholder="정할 운영자 비밀번호 (4자 이상)" maxlength="30" autocomplete="off">
+      <button class="mini-btn" id="admGen" style="width:100%;margin-bottom:9px">admin.json 내용 만들기</button>
+      <div class="codebox" id="admJson">비밀번호를 입력하고 버튼을 누르세요.</div>
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <button class="mini-btn" id="admCopy" style="flex:1">📋 복사</button>
+        <a class="mini-btn" id="admEdit" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">GitHub에서 만들기</a>
+      </div>
+    </div>
+
+    <p style="color:var(--mint);font-size:12px;text-align:center;margin:4px 0 10px">
+      운영자 모드 ON — 커뮤니티에서 글 삭제와 운영자 배지가 표시됩니다.</p>
+    <button class="ghost-btn" id="admOut">운영자 모드 끄기</button>
+    <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+
+  $('ntType').value = cur.type || 'info';
+  const repo = 'https://github.com/WOOCHY338/moneyroad/edit/main/notice.json';
+  const buildJson = ()=> JSON.stringify({
+    on: true,
+    text: ($('ntText').value||'').trim(),
+    type: $('ntType').value,
+    id: 'n' + (($('ntText').value||'').trim().length) + '-' + ($('ntText').value||'').trim().slice(0,12)
+  }, null, 2);
+  const refresh = ()=>{ $('ntJson').textContent = buildJson(); };
+  refresh();
+  $('ntText').oninput = refresh; $('ntType').onchange = refresh;
+  $('ntEdit').href = repo;
+  $('ntCopy').onclick = ()=>{ try{ navigator.clipboard.writeText(buildJson()); toast('📋 복사했습니다'); }catch(e){ toast('복사 실패 — 직접 선택해 복사해주세요'); } };
+  $('sqlCopy').onclick = ()=>{ try{ navigator.clipboard.writeText($('sqlBox').textContent); toast('📋 SQL을 복사했습니다'); }catch(e){ toast('복사 실패'); } };
+  $('ntPreview').onclick = async ()=>{
+    const t = ($('ntText').value||'').trim();
+    if(!t) return toast('공지 내용을 입력해주세요');
+    lsSet(NOTICE_LOCAL_KEY, JSON.stringify({on:true, text:t, type:$('ntType').value, id:'n'+t.length+'-'+t.slice(0,12)}));
+    lsDel(NOTICE_SEEN_KEY);
+    closeModal(); await initNotice(); toast('📢 공지를 띄웠습니다 (이 브라우저)');
+  };
+  $('ntOff').onclick = async ()=>{
+    lsDel(NOTICE_LOCAL_KEY); lsDel(NOTICE_SEEN_KEY);
+    closeModal(); await initNotice(); toast('공지를 내렸습니다 (로컬)');
+  };
+  $('cmSave').onclick = ()=>{
+    const url = ($('cmUrl').value||'').trim().replace(/\/$/,''), key = ($('cmKey').value||'').trim();
+    if(!/^https:\/\/.+\.supabase\.co$/.test(url)) return toast('URL 형식을 확인해주세요 (https://xxxxx.supabase.co)');
+    if(key.length < 20) return toast('anon key를 확인해주세요');
+    COMM = {mode:'supabase', url, key, table:'messages'};
+    lsSet(COMM_KEY, JSON.stringify(COMM));
+    closeModal(); lastChatSig=''; renderChat(true); toast('🌐 전체 공개 모드로 전환했습니다');
+  };
+  if($('cmOff')) $('cmOff').onclick = ()=>{
+    COMM = {mode:'local', url:'', key:'', table:'messages'};
+    lsSet(COMM_KEY, JSON.stringify(COMM));
+    closeModal(); lastChatSig=''; renderChat(true); toast('로컬 모드로 돌아갔습니다');
+  };
+  $('cmClear').onclick = async ()=>{
+    if(!commOnline()){ saveLocalMsgs([]); lastChatSig=''; renderChat(true); return toast('로컬 글을 모두 지웠습니다'); }
+    try{
+      const u = `${COMM.url.replace(/\/$/,'')}/rest/v1/${encodeURIComponent(COMM.table)}?id=gt.0`;
+      const r = await fetch(u, {method:'DELETE', headers:{apikey:COMM.key, Authorization:'Bearer '+COMM.key}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      lastChatSig=''; renderChat(true); toast('글을 모두 지웠습니다');
+    }catch(e){ toast('삭제 실패: '+e.message); }
+  };
+  let admJsonText = '';
+  $('admEdit').href = 'https://github.com/WOOCHY338/moneyroad/new/main?filename=admin.json';
+  $('admGen').onclick = async ()=>{
+    const pw = $('admNew').value||'';
+    if(pw.length < 4) return toast('비밀번호는 4자 이상이어야 합니다');
+    admJsonText = await makeAdminJson(pw);
+    $('admJson').textContent = admJsonText;
+    toast('만들었습니다 — 복사해서 admin.json으로 올리세요');
+  };
+  $('admCopy').onclick = ()=>{
+    if(!admJsonText) return toast('먼저 내용을 만들어주세요');
+    try{ navigator.clipboard.writeText(admJsonText); toast('📋 복사했습니다'); }catch(e){ toast('복사 실패 — 직접 선택해 복사해주세요'); }
+  };
+  $('admOut').onclick = ()=>{ adminOn=false; closeModal(); lastChatSig=''; renderChat(true); toast('운영자 모드를 껐습니다'); };
 }
 
 /* ==================== 슬롯 화면 ==================== */
@@ -1195,6 +1699,7 @@ function switchTab(t){
   document.querySelectorAll('.tab').forEach(d=>d.classList.toggle('on', d.id==='tab-'+t));
   if(t==='pf') renderPortfolio();
   if(t==='bank') renderBank();
+  if(t==='community'){ lastChatSig=''; renderChat(true); }
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 

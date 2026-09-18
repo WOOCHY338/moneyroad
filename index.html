@@ -263,6 +263,7 @@ tr:last-child td{border-bottom:none}
     <div class="loginnote" id="loginNote">
       게스트로 시작하면 이 브라우저에만 기록이 저장됩니다.
     </div>
+    <button id="gcidLink" style="background:none;color:#6b7c9e;font-size:11.5px;margin-top:10px;text-decoration:underline">⚙️ Google 로그인 설정</button>
   </div>
 </div>
 
@@ -629,7 +630,8 @@ function saveGame(silent){
         → OAuth 클라이언트 ID(웹 애플리케이션) 만들기
         → '승인된 JavaScript 원본'에 이 페이지 주소를 등록
    비워두면 Google 버튼이 설정 안내를 띄우고, 게스트 로그인은 그대로 동작합니다.      */
-const GOOGLE_CLIENT_ID = '';
+const GCID_KEY = 'MONEYROAD_GCID';
+let GOOGLE_CLIENT_ID = lsGet(GCID_KEY) || '';   // 게임 화면에서 붙여넣어도 되고, 여기에 직접 적어도 됩니다
 const AUTH_KEY = 'MONEYROAD_AUTH_V1';
 let AUTH = null, googleReady = false;
 
@@ -686,21 +688,50 @@ function initGoogle(){
   document.head.appendChild(s);
 }
 function googleSetupGuide(){
+  const origin = location.origin.startsWith('http') ? location.origin : '(웹에 올린 뒤의 주소)';
+  const cur = GOOGLE_CLIENT_ID;
   openModal(`<h2>🔧 Google 로그인 설정</h2>
-    <p style="color:var(--sub);font-size:13px;margin:10px 0;line-height:1.85">
-      아직 클라이언트 ID가 등록되지 않았습니다. 아래 절차 후 파일 상단의
-      <b style="color:var(--gold)">GOOGLE_CLIENT_ID</b> 값만 채우면 바로 켜집니다.</p>
-    <div style="font-size:12.5px;line-height:2;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
-      1. <b>console.cloud.google.com</b> 접속<br>
-      2. API 및 서비스 → 사용자 인증 정보<br>
-      3. 사용자 인증 정보 만들기 → <b>OAuth 클라이언트 ID</b> → 웹 애플리케이션<br>
-      4. <b>승인된 JavaScript 원본</b>에 이 페이지 주소 추가<br>
-      5. 발급된 ID를 <b>GOOGLE_CLIENT_ID</b>에 붙여넣기
+    <p style="color:var(--sub);font-size:13px;margin:10px 0 12px;line-height:1.85">
+      구글 로그인은 <b style="color:var(--txt)">계정 소유자만</b> 발급할 수 있는 클라이언트 ID가 필요합니다.
+      아래 4단계는 한 번만 하면 되고, 마지막에 ID를 여기 붙여넣으면 바로 켜집니다.</p>
+    <div style="font-size:12.5px;line-height:2.05;color:var(--txt);background:#0a1020;border:1px solid var(--line);border-radius:11px;padding:12px 14px">
+      1. <b>console.cloud.google.com</b> 접속 후 프로젝트 생성<br>
+      2. <b>API 및 서비스 → OAuth 동의 화면</b>에서 앱 이름만 채우고 저장<br>
+      3. <b>사용자 인증 정보 → 만들기 → OAuth 클라이언트 ID → 웹 애플리케이션</b><br>
+      4. <b>승인된 JavaScript 원본</b>에 아래 주소를 그대로 추가
+      <div style="margin:7px 0 2px;display:flex;gap:6px;align-items:center">
+        <code id="originTxt" style="flex:1;background:#131d33;border:1px solid var(--line);border-radius:7px;
+          padding:8px 10px;font-size:12.5px;color:var(--gold);word-break:break-all">${esc(origin)}</code>
+        <button class="mini-btn" id="copyOrigin">복사</button>
+      </div>
     </div>
-    <p style="color:var(--sub);font-size:12px;margin-top:12px;line-height:1.8">
-      수업 중이라면 <b style="color:var(--mint)">게스트 로그인</b>으로 모든 기능을 그대로 쓸 수 있습니다.</p>
-    <button class="big-btn" style="margin-top:12px" id="guestFromModal">🎮 게스트로 시작하기</button>
+    <p style="color:var(--sub);font-size:12px;margin:13px 0 5px">발급받은 클라이언트 ID를 붙여넣으세요</p>
+    <input class="name-in" id="gcidIn" style="margin:0 0 10px;font-size:13px;text-align:left"
+      placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com" value="${esc(cur)}" autocomplete="off">
+    <button class="big-btn" id="saveGcid">💾 저장하고 Google 로그인 켜기</button>
+    ${cur?`<button class="ghost-btn" id="clearGcid">등록된 ID 삭제</button>`:''}
+    <p style="color:var(--sub);font-size:12px;margin-top:13px;line-height:1.8">
+      설정 없이도 <b style="color:var(--mint)">게스트 로그인</b>으로 모든 기능을 그대로 쓸 수 있습니다.</p>
+    <button class="ghost-btn" id="guestFromModal">🎮 게스트로 시작하기</button>
     <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
+  $('copyOrigin').onclick = ()=>{
+    try{ navigator.clipboard.writeText(origin); toast('📋 주소를 복사했습니다'); }
+    catch(e){ toast('복사에 실패했습니다 — 직접 선택해서 복사해주세요'); }
+  };
+  $('saveGcid').onclick = ()=>{
+    const v = ($('gcidIn').value||'').trim();
+    if(!v) return toast('클라이언트 ID를 입력해주세요');
+    if(!/\.apps\.googleusercontent\.com$/.test(v))
+      return toast('형식이 올바르지 않습니다 — .apps.googleusercontent.com 으로 끝나야 합니다');
+    GOOGLE_CLIENT_ID = v; lsSet(GCID_KEY, v);
+    closeModal(); toast('✅ 저장했습니다. Google 로그인을 켜는 중…');
+    initGoogle();
+  };
+  if($('clearGcid')) $('clearGcid').onclick = ()=>{
+    GOOGLE_CLIENT_ID=''; try{ localStorage.removeItem(GCID_KEY); }catch(e){}
+    closeModal(); toast('등록된 ID를 삭제했습니다');
+    $('googleBtn').style.display=''; $('gsiBtn').style.display='none'; googleReady=false;
+  };
   $('guestFromModal').onclick = ()=>{ closeModal(); guestLogin(); };
 }
 function guestLogin(){ setAuth({mode:'guest', id:'guest', name:'게스트', email:'', pic:''}); }
@@ -712,6 +743,7 @@ $('googleBtn').onclick = ()=>{
 };
 $('guestBtn').onclick = guestLogin;
 $('logoutBtn').onclick = logout;
+$('gcidLink').onclick = googleSetupGuide;
 
 function bootAuth(){
   initGoogle(); initAds();

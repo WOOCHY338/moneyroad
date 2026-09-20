@@ -482,7 +482,8 @@ tr:last-child td{border-bottom:none}
             <button class="mini-btn" id="betExact" style="background:#3a1f4a;border-color:#6b3d86">정타 배팅</button>
           </div>
           <div class="result" id="oeResult"></div>
-          <div class="paytable">홀/짝 적중 시 베팅액의 1.9배를 돌려받습니다 (원금 포함).<br>숫자 정타는 8배. 카지노는 언제나 하우스가 유리합니다.</div>
+          <div class="paytable">1~10 중 하나가 나오며, <b>10% 확률로 0(💀)</b>이 나오면 홀·짝 모두 꽝입니다.<br>
+            홀/짝 적중 ×1.9 (적중률 45%) · 숫자 정타 ×8. 카지노는 언제나 하우스가 유리합니다.</div>
         </div>
       </div>
     </div>
@@ -495,6 +496,7 @@ tr:last-child td{border-bottom:none}
       <div class="panel">
         <h3>💬 커뮤니티 <small id="commMode">-</small></h3>
         <div class="chatlist" id="chatList"></div>
+        <div id="chatAs"></div>
         <div class="chatbar">
           <input id="chatIn" maxlength="200" placeholder="메시지를 입력하세요 (200자)" autocomplete="off">
           <button id="chatSend">전송</button>
@@ -520,20 +522,25 @@ const TICK_MS = 1000;
 const NEWS_EVERY = 30;      // 30초마다 AI 속보
 const TICKS_PER_DAY = 20;
 
+/* vol = 1틱당 표준편차. 값이 클수록 차트가 심하게 요동칩니다. */
 const STOCK_DEF = [
-  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.009, drift:0.00035},
-  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.021, drift:0.00050},
-  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.018, drift:0.00020},
-  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.014, drift:0.00030},
-  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.017, drift:0.00055},
-  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.012, drift:0.00028},
-  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.023, drift:0.00065},
-  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.011, drift:0.00032},
-  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.007, drift:0.00025},
-  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.010, drift:0.00035},
-  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.029, drift:0.00040},
-  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.014, drift:0.00033},
-  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.031, drift:0.00045},
+  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.016, drift:0.00035},
+  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.036, drift:0.00050},
+  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.031, drift:0.00020},
+  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.024, drift:0.00030},
+  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.029, drift:0.00055},
+  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.021, drift:0.00028},
+  {id:'NXC', name:'넥슨',         mkt:'KR', sec:'게임',     ico:'🕹️', price:2450,  vol:0.044, drift:0.00048},
+  {id:'NSM', name:'농심',         mkt:'KR', sec:'식품',     ico:'🍜', price:4300,  vol:0.019, drift:0.00026},
+  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.039, drift:0.00065},
+  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.019, drift:0.00032},
+  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.012, drift:0.00025},
+  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.017, drift:0.00035},
+  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.049, drift:0.00040},
+  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.024, drift:0.00033},
+  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.052, drift:0.00045},
+  {id:'NTDO',name:'닌텐도',       mkt:'US', sec:'게임',     ico:'🎴', price:9.80,  vol:0.033, drift:0.00042},
+  {id:'SONY',name:'소니',         mkt:'US', sec:'전자',     ico:'🎧', price:13.40, vol:0.026, drift:0.00034},
 ];
 
 /* ==================== AI 속보 생성기 ==================== */
@@ -770,6 +777,7 @@ function logout(){
   if(G) saveGame(true);
   if(timer){ clearInterval(timer); timer=null; }
   G = null; AUTH = null;
+  resetCasino(); overShown=false;
   lsDel(AUTH_KEY);
   SLOTS = [null,null,null,null,null,null];
   ['liUser','liPw','suUser','suPw','suPw2'].forEach(i=>{ if($(i)) $(i).value=''; });
@@ -1044,7 +1052,7 @@ async function fetchMsgs(){
   return rows.reverse().map(x=>({id:x.id, user:x.username, text:x.text, at:x.created_at, admin:!!x.is_admin}));
 }
 async function pushMsg(text){
-  const who = AUTH ? AUTH.name : '게스트';
+  const who = chatNick() || '게스트';           // 커뮤니티 표시 이름 = 프로필 닉네임
   const admin = !!adminOn;
   if(!commOnline()){
     const a = localMsgs();
@@ -1069,7 +1077,7 @@ async function delMsg(id){
   }catch(e){ toast('삭제 실패: '+e.message); }
 }
 function msgHTML(m){
-  const me = AUTH && m.user === AUTH.name;
+  const me = m.user === chatNick();
   const t = (()=>{ try{ return new Date(m.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } })();
   return `<div class="msg ${m.admin?'admin':(me?'me':'')}">
     <div class="av">${esc((m.user||'?').charAt(0).toUpperCase())}</div>
@@ -1081,6 +1089,7 @@ function msgHTML(m){
 }
 async function renderChat(force){
   const box = $('chatList'); if(!box) return;
+  renderChatAs();
   $('commMode').textContent = commOnline() ? '🌐 전체 공개 (모든 기기 공유)' : '💾 로컬 모드 (이 브라우저에서만)';
   $('commNote').innerHTML = commOnline()
     ? '모든 접속자가 같은 글을 봅니다. 개인정보나 비밀번호는 적지 마세요.'
@@ -1103,7 +1112,21 @@ async function renderChat(force){
   box.querySelectorAll('[data-delmsg]').forEach(b=>b.onclick=()=>delMsg(b.dataset.delmsg));
   if(atBottom) box.scrollTop = box.scrollHeight;
 }
+function chatNick(){ return (AUTH && AUTH.mode==='user') ? AUTH.name : null; }
+function renderChatAs(){
+  const nick = chatNick();
+  const el = $('chatAs'); if(!el) return;
+  el.innerHTML = nick
+    ? `<div style="font-size:11.5px;color:var(--sub);margin:10px 2px 0">
+         <b style="color:var(--gold)">${esc(nick)}</b> 님으로 작성됩니다</div>`
+    : `<div style="font-size:11.5px;color:#ffb3c0;margin:10px 2px 0">
+         게스트는 읽기만 됩니다 — 글을 쓰려면 계정으로 로그인하세요</div>`;
+  $('chatIn').disabled = !nick;
+  $('chatSend').disabled = !nick;
+  $('chatIn').placeholder = nick ? '메시지를 입력하세요 (200자)' : '로그인 후 이용할 수 있습니다';
+}
 async function sendChat(){
+  if(!chatNick()) return toast('글을 쓰려면 계정으로 로그인해주세요');
   const inp = $('chatIn'); const text = (inp.value||'').trim();
   if(!text) return;
   if(text.length > 200) return toast('200자를 넘을 수 없습니다');
@@ -1399,6 +1422,7 @@ function startGame(slot){
   STOCK_DEF.forEach(d=>{ if(!known.has(d.id)) G.stocks.push({...d,base:d.price,prev:d.price,mom:0,hist:[d.price]}); });
   G.stocks.forEach(s=>{ if(!s.hist||!s.hist.length) s.hist=[s.price]; s.mom=s.mom||0; });
 
+  resetCasino(); overShown=false;
   showScreen('game');
   switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed(G.speed==null?1:G.speed);
@@ -1431,6 +1455,7 @@ function updateNewsCounter(){
 }
 function exitGame(){
   saveGame(true); if(timer) clearInterval(timer); timer=null; G=null;
+  resetCasino(); overShown=false;
   renderSlots(); showScreen('select');
 }
 $('btnExit').onclick=exitGame;
@@ -1482,7 +1507,13 @@ function creditInfo(){
   if(nw >=   20000) return {g:'C',   r:0.012};
   return {g:'D', r:0.018};
 }
-function loanLimit(){ return Math.max(20000, Math.floor(netWorthOf(G)*2)); }
+/* 한도의 하한(2만원)이 마진콜 기준(순자산 < 부채×15%)을 넘어서면
+   빌리는 즉시 다음 틱에 강제청산되는 함정이 된다. 두 규칙 중 낮은 쪽을 쓴다. */
+function loanLimit(){
+  const nw = netWorthOf(G);
+  const floor = Math.min(20000, Math.max(0, Math.floor(nw/0.15)));
+  return Math.max(floor, Math.floor(nw*2));
+}
 function loanAvail(){ return Math.max(0, loanLimit() - G.debt); }
 function bankLog(msg){
   G.bank.unshift({d:G.day, m:msg});
@@ -1634,9 +1665,16 @@ function renderGrid(mkt, elId){
     </div>`;
   }).join('');
 }
+/* 해외 종목은 살 때의 환율로 원화 원가(h.krw)를 따로 들고 있어야 한다.
+   달러 평단에 현재 환율을 곱하면 환차손익이 상쇄돼 손익이 항상 0처럼 보인다. */
+function plOf(s,h){
+  const nowKRW = (s.mkt==='US' ? s.price*G.fx : s.price) * h.qty;
+  const costKRW = (h.krw != null) ? h.krw : (s.mkt==='US' ? h.avg*G.fx : h.avg) * h.qty;
+  const pl = nowKRW - costKRW;
+  return { pl, rt: costKRW ? pl/costKRW*100 : 0, costKRW };
+}
 function holdPLText(s,h){
-  const pl = (s.price-h.avg)*h.qty * (s.mkt==='US'?G.fx:1);
-  const rt = (s.price/h.avg-1)*100;
+  const {pl, rt} = plOf(s,h);
   return `<span class="${clsOf(pl)}">${pl>=0?'+':''}${Math.round(pl).toLocaleString()}원 (${sign(rt)}%)</span>`;
 }
 function renderPortfolio(){
@@ -1644,8 +1682,7 @@ function renderPortfolio(){
     const h=G.holdings[s.id];
     const cur = s.mkt==='US'? s.price*G.fx : s.price;
     const avg = s.mkt==='US'? h.avg*G.fx : h.avg;
-    const pl = (s.price-h.avg)*h.qty*(s.mkt==='US'?G.fx:1);
-    const rt = (s.price/h.avg-1)*100;
+    const {pl, rt} = plOf(s,h);
     return `<tr><td>${s.ico} ${s.name}<br><span style="font-size:10.5px;color:var(--sub)">${s.mkt==='US'?'해외':'국내'} · ${s.sec}</span></td>
       <td>${h.qty.toLocaleString()}주</td>
       <td>${Math.round(avg).toLocaleString()}</td>
@@ -1787,14 +1824,16 @@ function doTrade(s, kind){
   if(kind==='buy'){
     if(G.cash < cost+fee) return toast('현금이 부족합니다');
     G.cash -= cost+fee;
-    const h=G.holdings[s.id]||{qty:0,avg:0};
+    const h=G.holdings[s.id]||{qty:0,avg:0,krw:0};
     h.avg = (h.avg*h.qty + s.price*tradeQty)/(h.qty+tradeQty);
+    h.krw = (h.krw||0) + cost;                 // 살 때의 환율이 반영된 원화 원가
     h.qty += tradeQty; G.holdings[s.id]=h;
     G.stats.trades++; G.stats.fee+=fee;
     toast(`🔺 ${s.name} ${tradeQty}주 매수`);
   }else{
     const h=G.holdings[s.id];
     if(!h || h.qty<tradeQty) return toast('보유 수량이 부족합니다');
+    if(h.krw != null) h.krw -= h.krw * (tradeQty / h.qty);   // 판 만큼 원가도 덜어낸다
     G.cash += cost-fee; h.qty -= tradeQty;
     if(h.qty<=0) delete G.holdings[s.id];
     G.stats.trades++; G.stats.fee+=fee;
@@ -1804,9 +1843,10 @@ function doTrade(s, kind){
 }
 
 /* ==================== 카지노 ==================== */
+/* 가중치를 위쪽 심볼에 몰아 당첨 확률을 52.4% → 57.1% 로 올렸습니다. */
 const SYM = [
-  {e:'🍒',w:30,p:3},{e:'🍋',w:25,p:5},{e:'🔔',w:18,p:10},{e:'🍀',w:12,p:20},
-  {e:'💎',w:8,p:50},{e:'👑',w:5,p:100},{e:'7️⃣',w:2,p:500}
+  {e:'🍒',w:34,p:3},{e:'🍋',w:27,p:5},{e:'🔔',w:17,p:10},{e:'🍀',w:10,p:20},
+  {e:'💎',w:7,p:50},{e:'👑',w:4,p:100},{e:'7️⃣',w:1,p:500}
 ];
 const SYM_TOTAL = SYM.reduce((a,b)=>a+b.w,0);
 function rollSym(){ let r=Math.random()*SYM_TOTAL; for(const s of SYM){ r-=s.w; if(r<=0) return s; } return SYM[0]; }
@@ -1826,24 +1866,40 @@ document.querySelectorAll('[data-oebet]').forEach(b=>b.onclick=()=>{
   $('oeBet').value = v==='max' ? Math.max(1000,Math.floor(G.cash)) : v;
 });
 
-let spinning=false;
+let spinning=false, casinoTimers=[];
+function clearCasinoTimers(){ casinoTimers.forEach(t=>{ clearTimeout(t); clearInterval(t); }); casinoTimers=[]; }
+function resetCasino(){                       // 판을 떠나거나 새로 시작할 때 잠금을 반드시 푼다
+  clearCasinoTimers();
+  spinning=false; oeBusy=false;
+  if($('slotSpin')) $('slotSpin').disabled=false;
+  ['betOdd','betEven','betExact'].forEach(i=>{ if($(i)) $(i).disabled=false; });
+  [0,1,2].forEach(i=>{ if($('r'+i)) $('r'+i).classList.remove('spin'); });
+}
 $('slotSpin').onclick=()=>{
   if(!G||spinning) return;
   const bet=readBet('slotBet'); if(!bet) return;
+  const g=G;                                   // 정산 시점에 다른 판으로 바뀌었는지 확인할 기준
   G.cash -= bet; spinning=true; $('slotSpin').disabled=true;
   $('slotResult').textContent=''; renderAll();
   const reels=[$('r0'),$('r1'),$('r2')];
   reels.forEach(r=>r.classList.add('spin'));
   const final=[rollSym(),rollSym(),rollSym()];
-  const iv=setInterval(()=>reels.forEach(r=>r.textContent=rollSym().e), 70);
-  const stop=i=>setTimeout(()=>{
+  const stopped=[false,false,false];            // 멈춘 릴은 더 이상 건드리지 않는다
+  const iv=setInterval(()=>reels.forEach((r,i)=>{ if(!stopped[i]) r.textContent=rollSym().e; }), 70);
+  casinoTimers.push(iv);
+  const stop=i=>casinoTimers.push(setTimeout(()=>{
+    stopped[i]=true;
     reels[i].textContent=final[i].e; reels[i].classList.remove('spin');
-    if(i===2){ clearInterval(iv); settleSlot(bet,final); spinning=false; $('slotSpin').disabled=false; }
-  }, 700+i*520);
+    if(i===2){
+      clearInterval(iv);
+      try{ settleSlot(bet, final, g); }
+      finally{ spinning=false; $('slotSpin').disabled=false; }
+    }
+  }, 700+i*520));
   [0,1,2].forEach(stop);
-  setTimeout(()=>clearInterval(iv), 700+2*520+30);
 };
-function settleSlot(bet, f){
+function settleSlot(bet, f, g){
+  if(!G || G!==g) return;                       // 판을 떠났으면 정산하지 않는다
   let mult=0, msg='';
   if(f[0].e===f[1].e && f[1].e===f[2].e){ mult=f[0].p; msg=`🎉 ${f[0].e}×3 잭팟! ×${mult}`; }
   else if(f[0].e===f[1].e||f[1].e===f[2].e||f[0].e===f[2].e){ mult=1.3; msg='✨ 2개 일치! ×1.3'; }
@@ -1863,17 +1919,24 @@ let oeBusy=false;
 function playOE(mode, pickNum){
   if(!G||oeBusy) return;
   const bet=readBet('oeBet'); if(!bet) return;
+  const g=G;                                   // 정산 기준이 되는 판
   G.cash-=bet; oeBusy=true; renderAll();
   ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=true);
   $('oeResult').textContent='';
-  const n=RI(1,10);
+  /* 10% 확률로 '0'(하우스)이 나옵니다. 홀·짝 적중률 50% → 45%. */
+  const n = Math.random() < 0.10 ? 0 : RI(1,10);
   let t=0;
-  const iv=setInterval(()=>{ $('oeDice').textContent=RI(1,10); if(++t>14){ clearInterval(iv); reveal(); } }, 80);
+  const iv=setInterval(()=>{ $('oeDice').textContent=RI(1,10); if(++t>14){ clearInterval(iv); try{ reveal(); } finally { unlockOE(); } } }, 80);
+  casinoTimers.push(iv);
+  function unlockOE(){ ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=false); oeBusy=false; }
   function reveal(){
-    $('oeDice').textContent=n;
+    if(!G || G!==g) return;                    // 판을 떠났으면 정산하지 않는다
+    $('oeDice').textContent = n===0 ? '💀' : n;
     const isOdd = n%2===1;
     let win=0, msg='';
-    if(mode==='exact'){
+    if(n===0){
+      msg = '💀 0 — 하우스 승리';                 // 홀도 짝도 아닌 꽝
+    }else if(mode==='exact'){
       if(n===pickNum){ win=Math.floor(bet*8); msg=`🎯 정타 적중! (${n}) ×8`; }
       else msg=`❌ 결과 ${n} — 빗나감`;
     }else{
@@ -1886,8 +1949,7 @@ function playOE(mode, pickNum){
       if(mode==='exact') toast(`🎯 정타 성공! ${win.toLocaleString()}원!`);
     }else{ G.stats.close++;
       $('oeResult').innerHTML=`<span style="color:#ff7d8c">${msg} → -${bet.toLocaleString()}원</span>`; }
-    ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=false);
-    oeBusy=false; saveGame(true); renderAll(); checkBroke();
+    saveGame(true); renderAll(); checkBroke();
   }
 }
 $('betOdd').onclick=()=>playOE('odd');
@@ -1914,9 +1976,12 @@ function checkBroke(){
   if(G.debt > 0 && netWorthOf(G) < 0 && loanAvail() < 1000) return gameOver();
   if(G.cash < 1000 && loanAvail() < 1000) return gameOver();
 }
-let overShown=false;
+let overShown=false, modalLocked=false;
 function gameOver(){
-  if(overShown) return; overShown=true;
+  if(overShown) return;
+  overShown=true; modalLocked=true;
+  if(timer){ clearInterval(timer); timer=null; }   // 파산 화면 뒤에서 시세가 계속 돌지 않게 멈춘다
+  resetCasino();
   openModal(`<h2>💀 파산</h2>
     <p style="color:var(--sub);font-size:13.5px;margin:10px 0;line-height:1.8">
       <b style="color:var(--txt)">${esc(G.name)}</b> 님, 자산이 바닥났습니다.<br>
@@ -1927,16 +1992,16 @@ function gameOver(){
   $('reBtn').onclick=()=>{
     const slot=G.slot, name=G.name; const slots=loadSlots();
     const g=newGame(name); g.slot=slot; slots[slot]=g; saveSlots(slots);
-    overShown=false; closeModal(); startGame(slot); toast('새 판을 시작합니다');
+    overShown=false; modalLocked=false; closeModal(); startGame(slot); toast('새 판을 시작합니다');
   };
-  $('outBtn').onclick=()=>{ overShown=false; closeModal(); exitGame(); };
+  $('outBtn').onclick=()=>{ overShown=false; modalLocked=false; closeModal(); exitGame(); };
 }
 
 /* ==================== 공통 UI ==================== */
 function openModal(html){ $('mbox').innerHTML=html; $('modal').classList.add('on'); }
 function closeModal(){ $('modal').classList.remove('on'); openStockId=null; }
-$('modal').onclick=e=>{ if(e.target.id==='modal') closeModal(); };
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+$('modal').onclick=e=>{ if(e.target.id==='modal' && !modalLocked) closeModal(); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !modalLocked) closeModal(); });
 function toast(msg){
   const t=$('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1900);

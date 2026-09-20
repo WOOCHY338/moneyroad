@@ -829,7 +829,7 @@ $('liUser').onkeydown = e=>{ if(e.key==='Enter') $('liPw').focus(); };
 $('suPw2').onkeydown = e=>{ if(e.key==='Enter') doSignup(); };
 
 function bootAuth(){
-  initAds(); initNotice(); startChatPoll(); loadAdminRemote();
+  initAds(); initNotice(); startChatPoll(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1037,7 +1037,25 @@ function loadComm(){
   return { mode:'local', url:'', key:'', table:'messages' };
 }
 let COMM = loadComm();
-let chatTimer = null, chatBusy = false, lastChatSig = '';
+/* 접속자 전원이 같은 글을 보려면 연결 정보가 각자 브라우저가 아니라 사이트에 있어야 한다.
+   저장소의 community.json 을 읽어 그걸 우선 적용한다(없으면 이 브라우저 설정으로 폴백).
+   anon key는 원래 공개용 키이므로 사이트에 두어도 되는 값이다. */
+async function loadCommRemote(){
+  try{
+    const r = await fetch('community.json', {cache:'no-store'});
+    if(r.ok){
+      const j = await r.json();
+      if(j && j.on !== false && j.url && j.key){
+        COMM = { mode:'supabase', url:String(j.url).replace(/\/$/,''), key:String(j.key), table:j.table||'messages' };
+        commFromRemote = true; lastChatSig = '';
+        if($('tab-community') && $('tab-community').classList.contains('on')) renderChat(true);
+        else renderChatAs();
+      }
+    }
+  }catch(e){}
+  return COMM;
+}
+let chatTimer = null, chatBusy = false, lastChatSig = '', commFromRemote = false;
 const commOnline = ()=> COMM.mode==='supabase' && COMM.url && COMM.key;
 
 function localMsgs(){ try{ const a=JSON.parse(lsGet(CHAT_KEY)); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
@@ -1090,10 +1108,13 @@ function msgHTML(m){
 async function renderChat(force){
   const box = $('chatList'); if(!box) return;
   renderChatAs();
-  $('commMode').textContent = commOnline() ? '🌐 전체 공개 (모든 기기 공유)' : '💾 로컬 모드 (이 브라우저에서만)';
-  $('commNote').innerHTML = commOnline()
-    ? '모든 접속자가 같은 글을 봅니다. 개인정보나 비밀번호는 적지 마세요.'
-    : '⚠️ 지금은 <b>로컬 모드</b>라 여기 쓴 글이 다른 기기에는 보이지 않습니다.<br>운영자 패널에서 Supabase를 연결하면 모두가 같은 글을 보게 됩니다.';
+  $('commMode').textContent = !commOnline() ? '💾 로컬 모드 (이 브라우저에서만)'
+    : commFromRemote ? '🌐 전체 공개 (모든 접속자 공유)' : '🔎 시험 연결 (이 브라우저만)';
+  $('commNote').innerHTML = !commOnline()
+    ? '⚠️ 지금은 <b>로컬 모드</b>입니다. 여기 쓴 글은 <b>다른 사람에게 보이지 않습니다.</b><br>운영자 패널에서 Supabase를 연결하면 모두가 같은 글을 보게 됩니다.'
+    : commFromRemote
+      ? '모든 접속자가 같은 글을 봅니다. 개인정보나 비밀번호는 적지 마세요.'
+      : '⚠️ 이 브라우저에서만 연결된 <b>시험 상태</b>입니다. 다른 사람에게 적용하려면 운영자 패널의 <b>community.json</b>을 저장소에 올리세요.';
   if(chatBusy) return;
   chatBusy = true;
   let msgs = [];
@@ -1252,7 +1273,17 @@ create policy "wipe" on messages for delete using (true);</div>
       <button class="mini-btn" id="sqlCopy" style="width:100%;margin:8px 0 12px">📋 SQL 복사</button>
       <input class="auth-in" id="cmUrl" placeholder="https://xxxxx.supabase.co" value="${esc(COMM.url||'')}" autocomplete="off">
       <input class="auth-in" id="cmKey" placeholder="anon public key" value="${esc(COMM.key||'')}" autocomplete="off">
-      <button class="big-btn" id="cmSave">🌐 연결하고 전체 공개로 전환</button>
+      <button class="big-btn" id="cmSave">🔎 내 브라우저에서 먼저 시험해보기</button>
+      <div class="warnbox" style="margin-top:12px">
+        위 버튼은 <b>이 브라우저에서만</b> 연결됩니다.<br>
+        <b>모든 접속자에게 적용하려면</b> 아래 내용을 저장소에
+        <b style="color:#ffd39f">community.json</b> 파일로 올려야 합니다.
+      </div>
+      <div class="codebox" id="cmJson" style="margin-top:9px"></div>
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <button class="mini-btn" id="cmCopy" style="flex:1">📋 복사</button>
+        <a class="mini-btn" id="cmEdit" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">GitHub에 올리기</a>
+      </div>
       ${commOnline()?`<button class="ghost-btn" id="cmOff">연결 끊고 로컬 모드로</button>`:''}
       <button class="ghost-btn" id="cmClear">커뮤니티 글 전체 삭제</button>
     </div>
@@ -1301,13 +1332,29 @@ create policy "wipe" on messages for delete using (true);</div>
     lsDel(NOTICE_LOCAL_KEY); lsDel(NOTICE_SEEN_KEY);
     closeModal(); await initNotice(); toast('공지를 내렸습니다 (로컬)');
   };
+  const commJson = ()=> JSON.stringify({
+    on: true,
+    url: ($('cmUrl').value||'').trim().replace(/\/$/,''),
+    key: ($('cmKey').value||'').trim(),
+    table: 'messages'
+  }, null, 2);
+  const refreshComm = ()=>{ $('cmJson').textContent = commJson(); };
+  refreshComm();
+  $('cmUrl').oninput = refreshComm; $('cmKey').oninput = refreshComm;
+  $('cmEdit').href = 'https://github.com/WOOCHY338/moneyroad/new/main?filename=community.json';
+  $('cmCopy').onclick = ()=>{
+    const u = ($('cmUrl').value||'').trim(), k = ($('cmKey').value||'').trim();
+    if(!u || !k) return toast('URL과 key를 먼저 입력해주세요');
+    try{ navigator.clipboard.writeText(commJson()); toast('📋 복사했습니다 — community.json 으로 올리세요'); }
+    catch(e){ toast('복사 실패 — 직접 선택해 복사해주세요'); }
+  };
   $('cmSave').onclick = ()=>{
     const url = ($('cmUrl').value||'').trim().replace(/\/$/,''), key = ($('cmKey').value||'').trim();
     if(!/^https:\/\/.+\.supabase\.co$/.test(url)) return toast('URL 형식을 확인해주세요 (https://xxxxx.supabase.co)');
     if(key.length < 20) return toast('anon key를 확인해주세요');
     COMM = {mode:'supabase', url, key, table:'messages'};
     lsSet(COMM_KEY, JSON.stringify(COMM));
-    closeModal(); lastChatSig=''; renderChat(true); toast('🌐 전체 공개 모드로 전환했습니다');
+    closeModal(); lastChatSig=''; renderChat(true); toast('🔎 이 브라우저에서 연결했습니다 (전원 적용은 community.json 필요)');
   };
   if($('cmOff')) $('cmOff').onclick = ()=>{
     COMM = {mode:'local', url:'', key:'', table:'messages'};

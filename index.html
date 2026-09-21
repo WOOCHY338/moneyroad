@@ -132,6 +132,7 @@ input{font-family:inherit}
 /* 키보드 포커스는 어디서든 보이게 (기존엔 outline을 지우기만 하고 주는 규칙이 없었다) */
 :focus-visible{outline:3px solid var(--mint);outline-offset:2px;border-radius:6px}
 .card{cursor:pointer}
+.card.dead{opacity:.45;filter:grayscale(1)}
 button.card{display:block;width:100%;text-align:left;font:inherit;color:inherit}
 /* 하단 고정 배너가 노치 여백만큼 더 커지므로 본문 여백도 같이 늘린다 */
 body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}
@@ -488,7 +489,7 @@ tr:last-child td{border-bottom:none}
           <input class="bet-in" id="oeBet" type="number" value="1000" min="1000" aria-label="홀짝 베팅 금액(원)">
           <div class="oe-btns"><button class="oe-odd" id="betOdd">홀 ×1.9</button><button class="oe-even" id="betEven">짝 ×1.9</button></div>
           <div style="margin-top:9px;display:flex;gap:7px;align-items:center;justify-content:center;flex-wrap:wrap">
-            <span style="font-size:12px;color:#b79bd0">숫자 정타 ×8 →</span>
+            <span style="font-size:12px;color:#b79bd0">숫자 정타 ×9 →</span>
             <select id="oePick" aria-label="정타로 맞힐 숫자" style="background:#0a0610;border:1px solid #543069;color:var(--gold);padding:7px 10px;border-radius:8px;font-weight:800">
               <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
               <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
@@ -496,7 +497,7 @@ tr:last-child td{border-bottom:none}
             <button class="mini-btn" id="betExact" style="background:#3a1f4a;border-color:#6b3d86">정타 배팅</button>
           </div>
           <div class="result" id="oeResult"></div>
-          <div class="paytable">홀/짝 적중 시 베팅액의 1.9배를 돌려받습니다 (원금 포함).<br>숫자 정타는 8배. 카지노는 언제나 하우스가 유리합니다.</div>
+          <div class="paytable">홀/짝 적중 시 베팅액의 1.9배를 돌려받습니다 (원금 포함).<br>숫자 정타는 9배. 카지노는 언제나 하우스가 유리합니다.</div>
         </div>
       </div>
     </div>
@@ -537,33 +538,33 @@ const TICKS_PER_DAY = 20;
 
 /* vol = 1틱당 표준편차. 값이 클수록 차트가 심하게 요동칩니다. */
 const STOCK_DEF = [
-  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.0192, drift:0.00035},
-  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.0432, drift:0.00050},
-  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.0372, drift:0.00020},
-  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.0288, drift:0.00030},
-  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.0348, drift:0.00055},
-  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.0252, drift:0.00028},
-  {id:'NXC', name:'넥슨',         mkt:'KR', sec:'게임',     ico:'🕹️', price:2450,  vol:0.0528, drift:0.00048},
-  {id:'NSM', name:'농심',         mkt:'KR', sec:'식품',     ico:'🍜', price:4300,  vol:0.0228, drift:0.00026},
-  {id:'LGES',name:'LG에너지솔루션',mkt:'KR', sec:'2차전지', ico:'🔋', price:9600,  vol:0.0336, drift:0.00044},
-  {id:'CELL',name:'셀트리온',     mkt:'KR', sec:'바이오',   ico:'💊', price:5900,  vol:0.0360, drift:0.00038},
-  {id:'HYBE',name:'하이브',       mkt:'KR', sec:'엔터',     ico:'🎤', price:3700,  vol:0.0456, drift:0.00041},
-  {id:'KRFT',name:'크래프톤',     mkt:'KR', sec:'게임',     ico:'🪂', price:6800,  vol:0.0420, drift:0.00046},
-  {id:'KAL', name:'대한항공',     mkt:'KR', sec:'항공',     ico:'✈️', price:1950,  vol:0.0288, drift:0.00022},
-  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.0468, drift:0.00065},
-  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.0228, drift:0.00032},
-  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.0144, drift:0.00025},
-  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.0204, drift:0.00035},
-  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.0588, drift:0.00040},
-  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.0288, drift:0.00033},
-  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.0624, drift:0.00045},
-  {id:'NTDO',name:'닌텐도',       mkt:'US', sec:'게임',     ico:'🎴', price:9.80,  vol:0.0396, drift:0.00042},
-  {id:'SONY',name:'소니',         mkt:'US', sec:'전자',     ico:'🎧', price:13.40, vol:0.0312, drift:0.00034},
-  {id:'GOOG',name:'구글',         mkt:'US', sec:'빅테크',   ico:'🔍', price:26.40, vol:0.0216, drift:0.00036},
-  {id:'META',name:'메타',         mkt:'US', sec:'빅테크',   ico:'👓', price:31.50, vol:0.0300, drift:0.00038},
-  {id:'NFLX',name:'넷플릭스',     mkt:'US', sec:'미디어',   ico:'🎬', price:22.80, vol:0.0324, drift:0.00035},
-  {id:'DIS', name:'디즈니',       mkt:'US', sec:'미디어',   ico:'🏰', price:7.90,  vol:0.0252, drift:0.00024},
-  {id:'KO',  name:'코카콜라',     mkt:'US', sec:'식품',     ico:'🥤', price:5.60,  vol:0.0108, drift:0.00021},
+  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.0192, drift:0.000058},
+  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.0432, drift:0.000083},
+  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.0372, drift:0.000033},
+  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.0288, drift:0.000050},
+  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.0348, drift:0.000092},
+  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.0252, drift:0.000047},
+  {id:'NXC', name:'넥슨',         mkt:'KR', sec:'게임',     ico:'🕹️', price:2450,  vol:0.0528, drift:0.000080},
+  {id:'NSM', name:'농심',         mkt:'KR', sec:'식품',     ico:'🍜', price:4300,  vol:0.0228, drift:0.000043},
+  {id:'LGES',name:'LG에너지솔루션',mkt:'KR', sec:'2차전지', ico:'🔋', price:9600,  vol:0.0336, drift:0.000073},
+  {id:'CELL',name:'셀트리온',     mkt:'KR', sec:'바이오',   ico:'💊', price:5900,  vol:0.0360, drift:0.000063},
+  {id:'HYBE',name:'하이브',       mkt:'KR', sec:'엔터',     ico:'🎤', price:3700,  vol:0.0456, drift:0.000068},
+  {id:'KRFT',name:'크래프톤',     mkt:'KR', sec:'게임',     ico:'🪂', price:6800,  vol:0.0420, drift:0.000077},
+  {id:'KAL', name:'대한항공',     mkt:'KR', sec:'항공',     ico:'✈️', price:1950,  vol:0.0288, drift:0.000037},
+  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.0468, drift:0.000108},
+  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.0228, drift:0.000053},
+  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.0144, drift:0.000042},
+  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.0204, drift:0.000058},
+  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.0588, drift:0.000067},
+  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.0288, drift:0.000055},
+  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.0624, drift:0.000075},
+  {id:'NTDO',name:'닌텐도',       mkt:'US', sec:'게임',     ico:'🎴', price:9.80,  vol:0.0396, drift:0.000070},
+  {id:'SONY',name:'소니',         mkt:'US', sec:'전자',     ico:'🎧', price:13.40, vol:0.0312, drift:0.000057},
+  {id:'GOOG',name:'구글',         mkt:'US', sec:'빅테크',   ico:'🔍', price:26.40, vol:0.0216, drift:0.000060},
+  {id:'META',name:'메타',         mkt:'US', sec:'빅테크',   ico:'👓', price:31.50, vol:0.0300, drift:0.000063},
+  {id:'NFLX',name:'넷플릭스',     mkt:'US', sec:'미디어',   ico:'🎬', price:22.80, vol:0.0324, drift:0.000058},
+  {id:'DIS', name:'디즈니',       mkt:'US', sec:'미디어',   ico:'🏰', price:7.90,  vol:0.0252, drift:0.000040},
+  {id:'KO',  name:'코카콜라',     mkt:'US', sec:'식품',     ico:'🥤', price:5.60,  vol:0.0108, drift:0.000035},
 ];
 
 /* ==================== AI 속보 생성기 ==================== */
@@ -693,7 +694,8 @@ const sign = n=>(n>0?'+':'')+n.toFixed(2);
 const clsOf = n=>n>0.0001?'up':(n<-0.0001?'down':'flat');
 
 function freshStocks(){
-  return STOCK_DEF.map(d=>({...d, base:d.price, prev:d.price, mom:0, hist:[d.price]}));
+  return STOCK_DEF.map(d=>({...d, base:d.price, prev:d.price, mom:0, fair:d.price, vs:1,
+    beta:Math.max(0.55, Math.min(1.8, d.vol/0.030)), warn:0, hist:[d.price]}));
 }
 function newGame(name){
   return {
@@ -1533,6 +1535,10 @@ function startGame(slot){
   G.stocks.forEach(s=>{
     const d = defById[s.id];
     if(d){ s.vol=d.vol; s.drift=d.drift; s.name=d.name; s.sec=d.sec; s.ico=d.ico; s.mkt=d.mkt; s.base=s.base||d.price; }
+    if(s.fair==null) s.fair=s.base;                // 새 가격 모델에 필요한 값
+    if(s.vs==null)   s.vs=1;
+    if(s.beta==null) s.beta=Math.max(0.55, Math.min(1.8, s.vol/0.030));
+    if(s.warn==null) s.warn=0;
     if(!s.hist||!s.hist.length) s.hist=[s.price];
     s.mom=s.mom||0;
   });
@@ -1582,18 +1588,91 @@ $('btnSave').onclick=()=>saveGame(false);
 function gauss(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
   return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
 
+/* 상장폐지: 시작가의 12% 아래로 오래 머물면 관리종목 → 폐지.
+   폐지되면 보유 주식은 전액 손실입니다. 경고 기간이 있으니 그 전에 팔아야 합니다. */
+const WARN_AT = 0.12, DELIST_AT = 0.05, WARN_TICKS = 45;
+function checkDelist(s){
+  const r = s.price / s.base;
+  if(r < WARN_AT){
+    s.warn = (s.warn||0) + 1;
+    if(!s.warned && s.warn > 5){
+      s.warned = true;
+      pushNews(`[관리종목] ${s.name}, 주가 급락으로 관리종목 지정… 상장폐지 우려`, false, s.name, -3);
+      toast(`⚠️ ${s.name} 관리종목 지정 — 상장폐지 위험`);
+    }
+  }else{
+    s.warn = Math.max(0, (s.warn||0) - 2);
+    if(s.warned && r > WARN_AT*1.6){ s.warned = false; }
+  }
+  if(s.warn > WARN_TICKS || r < DELIST_AT) delist(s);
+}
+function delist(s){
+  if(s.dead) return;
+  s.dead = true; s.price = 0;
+  const h = G.holdings[s.id];
+  const lost = h && h.qty ? h.qty : 0;
+  if(lost){ delete G.holdings[s.id]; }
+  pushNews(`[상장폐지] ${s.name} 상장폐지 결정… 정리매매 없이 거래 종료`, false, s.name, 0);
+  toast(lost ? `💀 ${s.name} 상장폐지 — 보유 ${lost}주 전액 손실`
+             : `💀 ${s.name} 상장폐지`);
+}
+function marketCrashNews(){
+  pushNews(pick([
+    '[속보] 증시 패닉셀… 사이드카 발동, 전 종목 급락',
+    '[속보] 글로벌 증시 동반 폭락, 투매 확산',
+    '[속보] 대형 금융사 부실 공포… 코스피 장중 급락',
+  ]), false, '증시 전체', -6);
+  toast('🚨 시장 전체가 폭락하고 있습니다');
+}
+/* 속보 목록에 직접 한 줄 추가 (주가 영향은 호출한 쪽에서 이미 반영) */
+function pushNews(head, good, scope, pct){
+  const n = {head, good, scope, pct:pct||0, targets:[], day:G.day, by:'마켓와치',
+    time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})};
+  G.news.unshift(n); if(G.news.length>60) G.news.pop();
+  showFlash(n); renderNews(); updateTicker();
+}
+
+/* 실제 시장에 가깝게:
+   ① 시장 공통 요인(베타) — 분산투자로 위험이 다 사라지지 않는다
+   ② 변동성 클러스터링 — 크게 흔들린 뒤엔 계속 흔들린다
+   ③ 공정가치로의 약한 평균회귀 — 오른 건 되돌아올 수 있다
+   ④ 기대수익이 거의 0 — 그냥 들고 있는다고 오르지 않는다
+   ⑤ 드물게 시장 전체 폭락, 그리고 상장폐지 위험                     */
 function tick(){
   if(!G) return;
   G.tick++;
   // 환율
-  G.fx = Math.min(1900, Math.max(950, G.fx*(1+gauss()*0.0018)));
-  // 주가
+  G.fx = Math.min(1900, Math.max(950, G.fx*(1+gauss()*0.0022)));
+
+  // ① 시장 공통 요인
+  G.mkt = (G.mkt||0)*0.90 + gauss()*0.0065;
+  if(Math.random() < 0.0012){                      // ⑤ 패닉셀
+    G.mkt -= RNG(0.05, 0.13);
+    marketCrashNews();
+  }
+
   G.stocks.forEach(s=>{
-    s.mom = (s.mom||0)*0.90;
-    const chg = s.drift + s.mom + gauss()*s.vol;
-    s.price = Math.max(s.base*0.03, s.price*(1+chg));
+    if(s.dead) return;                             // 상장폐지된 종목은 멈춘다
+    s.mom  = (s.mom||0)*0.90;
+    s.fair = (s.fair || s.base) * (1 + (s.drift||0));
+    if(s.vs == null) s.vs = 1;
+    if(s.beta == null) s.beta = Math.max(0.55, Math.min(1.8, s.vol/0.030));
+
+    const z = gauss();
+    const shock = z * s.vol * s.vs;
+    // ② 큰 충격 뒤엔 변동성이 한동안 높게 유지된다 (평균은 1 근처)
+    s.vs = 0.97*s.vs + 0.03*(0.55 + 0.55*Math.min(3, Math.abs(z)));
+    // ③ 공정가치에서 멀어질수록 되돌리는 힘
+    const gap = (s.fair - s.price)/s.price;
+    const rev = Math.max(-0.02, Math.min(0.02, gap*0.006));
+    // ④ 변동성 부담을 빼서 장기 기대수익을 0 근처로
+    const chg = rev + s.mom + s.beta*G.mkt + shock - (s.vol*s.vol)/2;
+
+    s.price = Math.max(s.base*0.001, s.price*(1+chg));
     s.hist.push(s.price); if(s.hist.length>240) s.hist.shift();
+    checkDelist(s);
   });
+
   // 날짜
   if(G.tick % TICKS_PER_DAY === 0){
     G.day++; G.stocks.forEach(s=>s.prev=s.price);
@@ -1616,16 +1695,22 @@ function tick(){
 }
 
 /* ==================== 대출 ==================== */
+/* 빚을 많이 낼수록 금리가 뛴다. 자산이 커도 레버리지가 높으면 비싸진다. */
 function creditInfo(){
   const nw = netWorthOf(G);
-  if(nw >= 2000000) return {g:'AAA', r:0.005};
-  if(nw >=  500000) return {g:'A',   r:0.007};
-  if(nw >=  100000) return {g:'B',   r:0.009};
-  if(nw >=   20000) return {g:'C',   r:0.012};
-  return {g:'D', r:0.018};
+  let base, g;
+  if(nw >= 2000000){ base=0.005; g='AAA'; }
+  else if(nw >= 500000){ base=0.007; g='A'; }
+  else if(nw >= 100000){ base=0.009; g='B'; }
+  else if(nw >= 20000){ base=0.012; g='C'; }
+  else { base=0.018; g='D'; }
+  const lev = nw > 0 ? G.debt/nw : 6;
+  const extra = Math.min(0.030, Math.max(0, lev)*0.007);
+  if(lev >= 1.5) g += '−';
+  return {g, r: base + extra, lev};
 }
-/* 2만원은 담보와 무관한 '재기 자금'입니다. 빈털터리가 돼도 이만큼은 빌려서 다시 시작할 수 있습니다. */
-function loanLimit(){ return Math.max(20000, Math.floor(netWorthOf(G)*2)); }
+/* 2만원은 담보와 무관한 '재기 자금'. 그 위로는 순자산의 1.2배까지만 빌릴 수 있다. */
+function loanLimit(){ return Math.max(20000, Math.floor(netWorthOf(G)*1.2)); }
 function loanAvail(){ return Math.max(0, loanLimit() - G.debt); }
 function bankLog(msg){
   G.bank.unshift({d:G.day, m:msg});
@@ -1649,7 +1734,7 @@ function checkMargin(){
   if(!G || G.debt <= 0) return;
   // 마진콜은 '담보 강제 매각'입니다. 팔 주식이 없으면 청산할 것도 없으므로 건드리지 않습니다.
   if(!Object.values(G.holdings).some(h=>h.qty>0)) return;
-  if(netWorthOf(G) >= G.debt*0.15) return;
+  if(netWorthOf(G) >= G.debt*0.25) return;   // 실제 증권사처럼 담보유지비율을 빡빡하게
   let sold = 0;
   G.stocks.forEach(s=>{
     const h = G.holdings[s.id]; if(!h || !h.qty) return;
@@ -1771,8 +1856,10 @@ function renderGrid(mkt, elId){
     const h = G.holdings[s.id];
     const px = mkt==='US' ? fmtU(s.price) : Math.round(s.price).toLocaleString()+'원';
     const sub = mkt==='US' ? `<span style="font-size:11px;color:var(--sub)"> ≈${Math.round(s.price*G.fx).toLocaleString()}원</span>` : '';
-    return `<button type="button" class="card" data-stock="${esc(s.id)}">
-      <div class="row1"><span class="ico">${esc(s.ico)}</span><span class="nm">${esc(s.name)}</span><span class="sec">${esc(s.sec)}</span></div>
+    const flag = s.dead ? '<span class="sec" style="background:#3a1220;color:#ff8a9c">상장폐지</span>'
+              : s.warned ? '<span class="sec" style="background:#3a2a12;color:#ffc93c">관리종목</span>' : '';
+    return `<button type="button" class="card${s.dead?' dead':''}" data-stock="${esc(s.id)}">
+      <div class="row1"><span class="ico">${esc(s.ico)}</span><span class="nm">${esc(s.name)}</span>${flag}<span class="sec">${esc(s.sec)}</span></div>
       <div class="px">${px}${sub}</div>
       <div class="chg ${clsOf(d)}">${d>0?'▲':d<0?'▼':'—'} ${sign(d)}% <span style="color:var(--sub);font-weight:600">(전일대비)</span></div>
       ${sparkSVG(s.hist, d>=0)}
@@ -1857,7 +1944,9 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dat
 
 /* ==================== 매매 모달 ==================== */
 let openStockId=null, tradeQty=1;
-const FEE_KR=0.001, FEE_US=0.002;
+const FEE_KR=0.0015, FEE_US=0.0025;      // 매매 수수료
+const TAX_KR=0.0018;                      // 국내 매도 시 증권거래세
+const SLIP_BASE=8000000;                  // 주문이 이 금액에 가까워질수록 체결가가 불리해진다
 
 document.addEventListener('click', e=>{
   const c=e.target.closest('[data-stock]');
@@ -1897,7 +1986,28 @@ function openTrade(id){
 }
 function unitCost(s){ return s.mkt==='US' ? s.price*G.fx : s.price; }
 function feeRate(s){ return s.mkt==='US'?FEE_US:FEE_KR; }
-function maxBuy(s){ return Math.floor(G.cash / (unitCost(s)*(1+feeRate(s)))); }
+function taxRate(s, kind){ return (kind==='sell' && s.mkt==='KR') ? TAX_KR : 0; }
+/* 주문이 클수록 체결가가 불리해진다(시장충격). 소액일 때는 거의 0. */
+function slipRate(s, qty){
+  const v = unitCost(s)*qty;
+  if(!Number.isFinite(v) || v <= 0) return 0;
+  return Math.min(0.025, (v/SLIP_BASE)*0.012);
+}
+function execPrice(s, qty, kind){
+  const sl = slipRate(s, qty);
+  return unitCost(s) * (kind==='buy' ? 1+sl : 1-sl);
+}
+function maxBuy(s){
+  const u = unitCost(s);
+  if(!(u > 0)) return 0;                     // 상장폐지 등으로 가격이 0이면 매수 불가
+  let q = Math.floor(G.cash / (u*(1+feeRate(s))));
+  if(!Number.isFinite(q) || q <= 0) return 0;
+  for(let i=0; i<40 && q>0; i++){            // 슬리피지를 감안해 조금씩 줄인다(횟수 제한)
+    if(execPrice(s,q,'buy')*q*(1+feeRate(s)) <= G.cash) break;
+    q = Math.floor(q*0.95);
+  }
+  return Math.max(0, q);
+}
 function refreshTradeModal(){
   if(!openStockId) return;
   const s=G.stocks.find(x=>x.id===openStockId); if(!s || !$('tradeInfo')) return;
@@ -1909,14 +2019,19 @@ function refreshTradeModal(){
     <div class="kv"><span>보유 수량</span><b>${h&&h.qty?h.qty.toLocaleString()+'주':'없음'}</b></div>
     ${h&&h.qty?`<div class="kv"><span>평가손익</span><b>${holdPLText(s,h)}</b></div>`:''}
     <div class="kv"><span>내 현금</span><b style="color:var(--gold)">${fmtW(G.cash)}</b></div>`;
-  const cost = unitCost(s)*tradeQty;
-  const fee = cost*feeRate(s);
+  const sl = slipRate(s, tradeQty);
+  const buyPx = execPrice(s,tradeQty,'buy'), sellPx = execPrice(s,tradeQty,'sell');
+  const buyCost = buyPx*tradeQty, sellCost = sellPx*tradeQty;
+  const buyFee = buyCost*feeRate(s), sellFee = sellCost*feeRate(s);
+  const tax = sellCost*taxRate(s,'sell');
   $('tradeCalc').innerHTML = `
-    <div class="kv"><span>주문 금액</span><b>${Math.round(cost).toLocaleString()}원</b></div>
-    <div class="kv"><span>수수료 (${(feeRate(s)*100).toFixed(1)}%)</span><b>${Math.round(fee).toLocaleString()}원</b></div>
-    <div class="kv"><span>매수 총액 / 매도 수령</span><b>${Math.round(cost+fee).toLocaleString()}원 / ${Math.round(cost-fee).toLocaleString()}원</b></div>`;
-  $('doBuy').disabled = G.cash < cost+fee;
-  $('doSell').disabled = !h || h.qty < tradeQty;
+    <div class="kv"><span>주문 금액</span><b>${Math.round(buyCost).toLocaleString()}원</b></div>
+    <div class="kv"><span>수수료 (${(feeRate(s)*100).toFixed(2)}%)</span><b>${Math.round(buyFee).toLocaleString()}원</b></div>
+    ${s.mkt==='KR'?`<div class="kv"><span>매도 시 거래세 (0.18%)</span><b>${Math.round(tax).toLocaleString()}원</b></div>`:''}
+    ${sl>0.0005?`<div class="kv"><span>시장충격(슬리피지)</span><b class="down">${(sl*100).toFixed(2)}%</b></div>`:''}
+    <div class="kv"><span>매수 총액 / 매도 수령</span><b>${Math.round(buyCost+buyFee).toLocaleString()}원 / ${Math.round(sellCost-sellFee-tax).toLocaleString()}원</b></div>`;
+  $('doBuy').disabled = s.dead || G.cash < buyCost+buyFee;
+  $('doSell').disabled = s.dead || !h || h.qty < tradeQty;
   drawStockChart(s);
 }
 function drawStockChart(s){
@@ -1939,23 +2054,28 @@ function drawStockChart(s){
   c.fillText(f(mx),10,12); c.fillText(f(mn),10,h-3);
 }
 function doTrade(s, kind){
-  const cost=unitCost(s)*tradeQty, fee=cost*feeRate(s);
+  if(s.dead) return toast('상장폐지된 종목입니다');
+  const px   = execPrice(s, tradeQty, kind);       // 시장충격이 반영된 체결가
+  const cost = px * tradeQty;
+  const fee  = cost * feeRate(s);
+  const tax  = cost * taxRate(s, kind);
   if(kind==='buy'){
     if(G.cash < cost+fee) return toast('현금이 부족합니다');
     G.cash -= cost+fee;
     const h=G.holdings[s.id]||{qty:0,avg:0,krw:0};
-    h.avg = (h.avg*h.qty + s.price*tradeQty)/(h.qty+tradeQty);
-    h.krw = (h.krw||0) + cost;                 // 살 때의 환율이 반영된 원화 원가
+    const pxNative = s.mkt==='US' ? px/G.fx : px;
+    h.avg = (h.avg*h.qty + pxNative*tradeQty)/(h.qty+tradeQty);
+    h.krw = (h.krw||0) + cost + fee;                // 세금·수수료까지 포함한 진짜 원가
     h.qty += tradeQty; G.holdings[s.id]=h;
     G.stats.trades++; G.stats.fee+=fee;
     toast(`🔺 ${s.name} ${tradeQty}주 매수`);
   }else{
     const h=G.holdings[s.id];
     if(!h || h.qty<tradeQty) return toast('보유 수량이 부족합니다');
-    if(h.krw != null) h.krw -= h.krw * (tradeQty / h.qty);   // 판 만큼 원가도 덜어낸다
-    G.cash += cost-fee; h.qty -= tradeQty;
+    if(h.krw != null) h.krw -= h.krw * (tradeQty / h.qty);
+    G.cash += cost-fee-tax; h.qty -= tradeQty;
     if(h.qty<=0) delete G.holdings[s.id];
-    G.stats.trades++; G.stats.fee+=fee;
+    G.stats.trades++; G.stats.fee += fee+tax;
     toast(`🔻 ${s.name} ${tradeQty}주 매도`);
   }
   saveGame(true); renderAll(); refreshTradeModal();
@@ -2052,7 +2172,7 @@ function playOE(mode, pickNum){
     const isOdd = n%2===1;
     let win=0, msg='';
     if(mode==='exact'){
-      if(n===pickNum){ win=Math.floor(bet*8); msg=`🎯 정타 적중! (${n}) ×8`; }
+      if(n===pickNum){ win=Math.floor(bet*9); msg=`🎯 정타 적중! (${n}) ×9`; }
       else msg=`❌ 결과 ${n} — 빗나감`;
     }else{
       const hit = (mode==='odd')===isOdd;

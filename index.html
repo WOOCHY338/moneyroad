@@ -394,7 +394,7 @@ tr:last-child td{border-bottom:none}
 
     <div class="pwwarn">
       ⚠️ <b>실제로 쓰는 비밀번호는 입력하지 마세요.</b><br>
-      이 계정은 서버가 없는 게임 전용 계정이라, 이 브라우저 안에만 저장됩니다.
+      계정과 진행 상황은 서버에 저장되어 다른 기기에서도 이어서 할 수 있습니다.
     </div>
     <div style="margin-top:12px"><span class="online" id="onlineLogin" hidden></span></div>
     <button class="setlink" id="setLink">⚙️ 설정 (광고 · 계정관리)</button>
@@ -878,7 +878,9 @@ function loadSlots(){ return SLOTS; }              // 메모리가 원본 — �
 function saveSlots(a){
   if(!Array.isArray(a) || a.length !== 6) return false;   // 6칸 규칙을 깨는 쓰기는 막는다
   SLOTS = a;
-  return lsSet(slotKey(), JSON.stringify(a));
+  const ok = lsSet(slotKey(), JSON.stringify(a));
+  pushSlots();                                           // 서버에도 반영 (묶어서 전송)
+  return ok;
 }
 function saveGame(silent){
   if(!G) return;
@@ -927,13 +929,53 @@ async function hashPw(pw, salt){
 }
 const uid = n => n.trim().toLowerCase();
 
+/* ==================== 서버 계정 ====================
+   아이디·비밀번호와 저장 슬롯을 서버에 두어, 어느 기기에서든 같은 계정으로 이어서
+   할 수 있습니다. 비밀번호는 서버에서 bcrypt로 해시되며 원문도 해시도 밖으로 나오지
+   않습니다. 서버에 닿지 못하면 이 브라우저에 저장된 계정으로 자동 전환합니다.   */
+const TOKEN_KEY = 'MONEYROAD_TOKEN';
+let SRV_TOKEN = lsGet(TOKEN_KEY) || '';
+let srvMode = false;                 // 지금 세션이 서버 계정으로 로그인했는가
+let pushTimer = null;
+
+function srvUp(){ return commOnline(); }
+async function rpc(fn, args){
+  const r = await fetch(COMM.url + '/rest/v1/rpc/' + fn, {
+    method:'POST', headers: sbHeaders(), body: JSON.stringify(args)
+  });
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+/* 슬롯을 서버에 올린다 — 잦은 저장을 묶어서 보낸다 */
+function pushSlots(now){
+  if(!srvMode || !AUTH || AUTH.mode !== 'user' || !SRV_TOKEN || !srvUp()) return;
+  const send = ()=>{
+    pushTimer = null;
+    rpc('app_save_slots', {p_user: AUTH.name, p_token: SRV_TOKEN, p_slots: loadSlots()})
+      .catch(()=>{});
+  };
+  if(now) return send();
+  if(pushTimer) return;
+  pushTimer = setTimeout(send, 4000);
+}
+function applyServerSlots(slots){
+  if(Array.isArray(slots) && slots.length === 6){
+    SLOTS = [0,1,2,3,4,5].map(i=>sane(slots[i]));
+    lsSet(slotKey(), JSON.stringify(SLOTS));     // 오프라인 대비 사본
+    return true;
+  }
+  return false;
+}
+
+
 function showScreen(id){
   ['login','select','game'].forEach(s=>$(s).classList.toggle('on', s===id));
   window.scrollTo(0,0);
 }
-function setAuth(a){
+function setAuth(a, keepSlots){
   AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
-  loadUserSlots(); renderProfile(); startPresence();
+  if(!keepSlots) loadUserSlots();
+  renderProfile(); startPresence();
   FRIENDS=[]; waTarget=null; lastResults=[]; if(USERS_ENABLED) loadFriends();
   try{ renderSlots(); }
   catch(e){                                        // 어떤 이유로든 목록을 못 그리면 빈 슬롯으로 복구한다
@@ -947,7 +989,8 @@ function renderProfile(){
   if(!AUTH) return;
   const guest = AUTH.mode !== 'user';
   $('pfName').textContent = AUTH.name || '게스트';
-  $('pfMail').textContent = guest ? '게스트 · 기록이 남지 않을 수 있습니다' : '게임 계정 · 이 브라우저에 저장';
+  $('pfMail').textContent = guest ? '게스트 · 기록이 남지 않을 수 있습니다'
+    : (srvMode ? '☁️ 서버 계정 · 어느 기기에서든 접속' : '게임 계정 · 이 브라우저에 저장');
   $('pfImg').textContent = (AUTH.name||'?').trim().charAt(0).toUpperCase();
   $('pfImg').style.background = guest ? '#243050' : 'linear-gradient(135deg,var(--gold),#ff9d2e)';
   $('pfImg').style.color = guest ? '#8fa1c4' : '#301f00';
@@ -955,7 +998,9 @@ function renderProfile(){
 function logout(){
   if(G) saveGame(true);
   if(timer){ clearInterval(timer); timer=null; }
+  pushSlots(true);
   G = null; AUTH = null;
+  srvMode = false; SRV_TOKEN = ''; lsDel(TOKEN_KEY);
   stopPresence();
   resetCasino(); overShown=false;
   lsDel(AUTH_KEY);
@@ -982,6 +1027,20 @@ async function doSignup(){
   if(/[<>&"'\s]/.test(name)) return toast('아이디에 공백이나 특수문자는 쓸 수 없습니다');
   if(pw.length < 4) return toast('비밀번호는 4자 이상이어야 합니다');
   if(pw !== pw2) return toast('비밀번호가 서로 다릅니다');
+  if(srvUp()){
+    try{
+      const r = await rpc('app_signup', {p_user:name, p_pass:pw, p_slots:null});
+      if(!r.ok) return toast(r.err || '가입에 실패했습니다');
+      SRV_TOKEN = r.token; lsSet(TOKEN_KEY, SRV_TOKEN); srvMode = true;
+      const users0 = loadUsers();                 // 오프라인 대비 사본도 만들어 둔다
+      const st = randSalt();
+      users0[uid(name)] = {name, salt:st, hash: await hashPw(pw, st)};
+      saveUsers(users0);
+      toast('🎉 ' + name + '님, 계정이 만들어졌습니다 (어느 기기에서든 접속 가능)');
+      return setAuth({mode:'user', id:uid(name), name});
+    }catch(e){ toast('서버에 연결하지 못해 이 브라우저에만 저장합니다'); }
+  }
+  srvMode = false;
   const users = loadUsers();
   if(users[uid(name)]) return toast('이미 있는 아이디입니다');
   const salt = randSalt();
@@ -994,6 +1053,37 @@ async function doLogin(){
   const name = ($('liUser').value||'').trim();
   const pw = $('liPw').value||'';
   if(!name || !pw) return toast('아이디와 비밀번호를 입력해주세요');
+
+  if(srvUp()){
+    try{
+      const r = await rpc('app_login', {p_user:name, p_pass:pw});
+      if(r.ok){
+        SRV_TOKEN = r.token; lsSet(TOKEN_KEY, SRV_TOKEN); srvMode = true;
+        AUTH = {mode:'user', id:uid(name), name:r.username};
+        applyServerSlots(r.slots);
+        toast('👋 ' + r.username + '님 환영합니다');
+        return setAuth(AUTH, true);
+      }
+      if(!r.nouser) return toast(r.err || '로그인에 실패했습니다');
+      // 서버에 없는 계정 — 이 브라우저에 있던 계정이면 그대로 서버로 옮긴다
+      const lu = loadUsers()[uid(name)];
+      if(lu && await hashPw(pw, lu.salt) === lu.hash){
+        try{
+          AUTH = {mode:'user', id:uid(name), name:lu.name};
+          loadUserSlots();
+          const mv = await rpc('app_signup', {p_user:lu.name, p_pass:pw, p_slots:loadSlots()});
+          if(mv.ok){
+            SRV_TOKEN = mv.token; lsSet(TOKEN_KEY, SRV_TOKEN); srvMode = true;
+            toast('☁️ 기존 계정을 서버로 옮겼습니다 — 이제 다른 기기에서도 접속됩니다');
+            return setAuth(AUTH, true);
+          }
+        }catch(e){}
+        AUTH = null;
+      }
+      return toast('없는 아이디입니다');
+    }catch(e){ toast('서버에 연결하지 못해 이 브라우저 계정으로 로그인합니다'); }
+  }
+  srvMode = false;
   const u = loadUsers()[uid(name)];
   if(!u) return toast('없는 아이디입니다');
   if(await hashPw(pw, u.salt) !== u.hash) return toast('비밀번호가 틀렸습니다');
@@ -1017,8 +1107,18 @@ function bootAuth(){
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
-      if(a.mode !== 'user' || loadUsers()[a.id]){    // 삭제된 계정의 세션은 무시
-        AUTH = a; loadUserSlots(); renderProfile(); startPresence(); renderSlots(); return showScreen('select');
+      if(a.mode !== 'user' || loadUsers()[a.id] || SRV_TOKEN){
+        AUTH = a; loadUserSlots(); renderProfile(); startPresence(); renderSlots();
+        if(a.mode === 'user' && SRV_TOKEN){
+          setTimeout(async ()=>{                      // 서버 기록이 더 최신이면 그것으로 맞춘다
+            if(!srvUp()) return;
+            try{
+              const r = await rpc('app_load_slots', {p_user:a.name, p_token:SRV_TOKEN});
+              if(r && r.ok){ srvMode = true; if(applyServerSlots(r.slots)) renderSlots(); renderProfile(); }
+            }catch(e){}
+          }, 1200);
+        }
+        return showScreen('select');
       }
     }
   }catch(e){}
@@ -2076,6 +2176,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.1', date:'2026-09-22', title:'서버 계정 — 어느 기기에서든 접속',
+    items:[
+      ['new','계정과 진행 상황이 서버에 저장됩니다. 폰에서 하던 걸 PC에서 그대로 이어서 할 수 있습니다'],
+      ['chg','비밀번호는 서버에서 bcrypt로 처리되며 원문도 해시도 밖으로 나오지 않습니다'],
+      ['chg','기존에 이 브라우저에만 있던 계정은 로그인하면 자동으로 서버로 옮겨집니다'],
+      ['fix','서버에 연결하지 못하면 예전처럼 이 브라우저 계정으로 자동 전환됩니다'],
+    ]},
   { v:'2.0', date:'2026-09-21', title:'전체 초기화 — 모두 같은 출발선에서',
     items:[
       ['del','모든 저장 기록을 초기화했습니다. 슬롯 6칸이 모두 비워지고 1만원부터 다시 시작합니다'],
@@ -3126,7 +3233,7 @@ function toast(msg){
   const t=$('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1900);
 }
-window.addEventListener('beforeunload',()=>{ if(G) saveGame(true); });
+window.addEventListener('beforeunload',()=>{ if(G) saveGame(true); pushSlots(true); });
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && AUTH) heartbeat(); });
 window.closeModal=closeModal;
 

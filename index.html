@@ -63,6 +63,26 @@ input{font-family:inherit}
 #noticeBar .nb-x{flex:0 0 auto;background:none;color:inherit;opacity:.65;font-size:16px;padding:0 4px;line-height:1}
 #noticeBar .nb-x:hover{opacity:1}
 
+/* ===== 접속자 / 랭킹 ===== */
+.online{display:inline-flex;align-items:center;gap:6px;background:#0f2a1f;color:var(--mint);
+  border:1px solid #1d4a38;padding:5px 11px;border-radius:99px;font-size:12px;font-weight:800}
+.online[hidden]{display:none}
+.online i{width:7px;height:7px;border-radius:50%;background:var(--mint);display:block;
+  box-shadow:0 0 0 0 rgba(34,230,180,.6);animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(34,230,180,0)}100%{box-shadow:0 0 0 0 rgba(34,230,180,0)}}
+@media(prefers-reduced-motion:reduce){.online i{animation:none}}
+.rank-tabs{display:flex;gap:6px;background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:13px;flex-wrap:wrap}
+.rank-tabs button{flex:1 1 auto;min-width:96px;padding:10px;border-radius:9px;font-weight:800;font-size:13px;background:transparent;color:var(--sub)}
+.rank-tabs button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00}
+.rrow{display:flex;align-items:center;gap:11px;padding:11px 12px;border-bottom:1px solid #1a2438}
+.rrow:last-child{border-bottom:none}
+.rrow .no{flex:0 0 32px;text-align:center;font-weight:900;font-size:14px;color:var(--sub)}
+.rrow.top1 .no,.rrow.top2 .no,.rrow.top3 .no{font-size:18px}
+.rrow .who{flex:1;min-width:0;font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rrow .val{flex:0 0 auto;font-weight:900;font-size:14px;color:var(--gold)}
+.rrow.me{background:#151f33;border-radius:9px}
+.rrow .live{width:7px;height:7px;border-radius:50%;background:var(--mint);flex:0 0 7px}
+
 /* ===== 커뮤니티 ===== */
 .chatlist{height:330px;overflow-y:auto;background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:9px}
 .msg{display:flex;gap:9px;align-items:flex-start}
@@ -340,6 +360,7 @@ tr:last-child td{border-bottom:none}
       ⚠️ <b>실제로 쓰는 비밀번호는 입력하지 마세요.</b><br>
       이 계정은 서버가 없는 게임 전용 계정이라, 이 브라우저 안에만 저장됩니다.
     </div>
+    <div style="margin-top:12px"><span class="online" id="onlineLogin" hidden></span></div>
     <button class="setlink" id="setLink">⚙️ 설정 (광고 · 계정관리)</button>
   </div>
 </div>
@@ -375,6 +396,7 @@ tr:last-child td{border-bottom:none}
       <div class="stat"><span class="k">수익률</span><span class="v" id="uRoi">-</span></div>
       <div class="stat"><span class="k">환율</span><span class="v" id="uFx" style="font-size:13px">-</span></div>
       <div class="spacer"></div>
+      <span class="online" id="onlineTop" hidden></span>
       <div class="speed" id="speedBox">
         <button data-sp="0">⏸</button><button data-sp="1" class="on">1x</button>
         <button data-sp="2">2x</button><button data-sp="4">4x</button><button data-sp="8">8x</button>
@@ -395,6 +417,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="casino">🎰 카지노</button>
     <button data-tab="news">📰 뉴스</button>
     <button data-tab="community">💬 커뮤니티</button>
+    <button data-tab="rank">🏆 랭킹</button>
   </nav>
 
   <main>
@@ -504,6 +527,19 @@ tr:last-child td{border-bottom:none}
 
     <div class="tab" id="tab-news">
       <div class="panel"><h3>AI 실시간 속보 <small id="newsCounter">다음 속보까지 30초</small></h3><div id="newsList"></div></div>
+    </div>
+
+    <div class="tab" id="tab-rank">
+      <div class="panel">
+        <h3>🏆 랭킹 <small id="rankMode">-</small></h3>
+        <div class="rank-tabs">
+          <button class="on" data-rank="net_worth">💰 순자산</button>
+          <button data-rank="shares">📈 보유 주식</button>
+          <button data-rank="play_secs">⏱ 접속 시간</button>
+        </div>
+        <div id="rankList"></div>
+        <div class="warnbox" id="rankNote"></div>
+      </div>
     </div>
 
     <div class="tab" id="tab-community">
@@ -818,7 +854,7 @@ function showScreen(id){
 }
 function setAuth(a){
   AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
-  loadUserSlots(); renderProfile();
+  loadUserSlots(); renderProfile(); startPresence();
   try{ renderSlots(); }
   catch(e){                                        // 어떤 이유로든 목록을 못 그리면 빈 슬롯으로 복구한다
     SLOTS = [null,null,null,null,null,null];
@@ -840,6 +876,7 @@ function logout(){
   if(G) saveGame(true);
   if(timer){ clearInterval(timer); timer=null; }
   G = null; AUTH = null;
+  stopPresence();
   resetCasino(); overShown=false;
   lsDel(AUTH_KEY);
   SLOTS = [null,null,null,null,null,null];
@@ -897,7 +934,7 @@ function bootAuth(){
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
       if(a.mode !== 'user' || loadUsers()[a.id]){    // 삭제된 계정의 세션은 무시
-        AUTH = a; loadUserSlots(); renderProfile(); renderSlots(); return showScreen('select');
+        AUTH = a; loadUserSlots(); renderProfile(); startPresence(); renderSlots(); return showScreen('select');
       }
     }
   }catch(e){}
@@ -1111,6 +1148,7 @@ async function loadCommRemote(){
       if(j && j.on !== false && j.url && j.key){
         COMM = { mode:'supabase', url:String(j.url).replace(/\/$/,''), key:String(j.key), table:j.table||'messages' };
         commFromRemote = true; lastChatSig = '';
+        if(AUTH) startPresence();
         if($('tab-community') && $('tab-community').classList.contains('on')) renderChat(true);
         else renderChatAs();
       }
@@ -1225,6 +1263,136 @@ function startChatPoll(){
   if(chatTimer) clearInterval(chatTimer);
   chatTimer = setInterval(()=>{ if($('tab-community').classList.contains('on')) renderChat(); }, 5000);
 }
+
+/* ==================== 접속자 수 / 랭킹 ====================
+   커뮤니티와 같은 Supabase를 씁니다. players 테이블에 20초마다 내 상태를 올리고,
+   최근 90초 안에 신호를 보낸 사람을 '접속 중'으로 셉니다.                     */
+const PLAYERS_TABLE = 'players';
+const GUESTID_KEY = 'MONEYROAD_GUESTID';
+let ONLINE = 0, hbTimer = null, playSecs = 0, rankKind = 'net_worth';
+
+function guestId(){
+  let v = lsGet(GUESTID_KEY);
+  if(!v){ v = 'g' + Math.random().toString(36).slice(2,10); lsSet(GUESTID_KEY, v); }
+  return v;
+}
+function playerKey(){
+  if(!AUTH) return null;
+  return AUTH.mode === 'user' ? 'u_' + AUTH.id : 'guest_' + guestId();
+}
+function ptKey(){ return 'MONEYROAD_PT:' + playerKey(); }
+function fmtDur(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60);
+  return h ? `${h}시간 ${m}분` : (m ? `${m}분` : `${sec}초`);
+}
+/* 이 계정이 가진 슬롯 전체를 기준으로 집계 */
+function accountStats(){
+  let nw = 0, sh = 0;
+  loadSlots().forEach(g=>{
+    if(!g) return;
+    const v = netWorthOf(g); if(v > nw) nw = v;
+    Object.values(g.holdings||{}).forEach(h=>{ sh += (h.qty||0); });
+  });
+  if(G){ const v = netWorthOf(G); if(v > nw) nw = v; }
+  return { nw: Math.round(nw), sh };
+}
+function sbHeaders(extra){
+  return Object.assign({apikey:COMM.key, Authorization:'Bearer '+COMM.key,
+    'Content-Type':'application/json'}, extra||{});
+}
+async function heartbeat(){
+  if(!commOnline() || !AUTH) return;
+  playSecs = (parseInt(lsGet(ptKey()),10) || 0);
+  const st = accountStats();
+  const body = {
+    id: playerKey(), username: AUTH.name || '게스트',
+    is_guest: AUTH.mode !== 'user',
+    net_worth: st.nw, shares: st.sh, play_secs: playSecs,
+    last_seen: new Date().toISOString()
+  };
+  try{
+    await fetch(`${COMM.url}/rest/v1/${PLAYERS_TABLE}?on_conflict=id`, {
+      method:'POST',
+      headers: sbHeaders({Prefer:'resolution=merge-duplicates,return=minimal'}),
+      body: JSON.stringify(body)
+    });
+  }catch(e){}
+  fetchOnline();
+}
+async function fetchOnline(){
+  if(!commOnline()){ ONLINE = 0; renderOnline(); return; }
+  try{
+    const since = new Date(Date.now() - 90000).toISOString();
+    const r = await fetch(`${COMM.url}/rest/v1/${PLAYERS_TABLE}?select=id&last_seen=gte.${encodeURIComponent(since)}&limit=500`,
+      {headers: sbHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    ONLINE = (await r.json()).length;
+  }catch(e){ ONLINE = 0; }
+  renderOnline();
+}
+function renderOnline(){
+  [['onlineTop'],['onlineLogin']].forEach(([id])=>{
+    const el = $(id); if(!el) return;
+    if(!commOnline() || ONLINE <= 0){ el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = `<i></i>${ONLINE}명 접속 중`;
+  });
+}
+function startPresence(){
+  if(hbTimer) clearInterval(hbTimer);
+  playSecs = (parseInt(lsGet(ptKey()),10) || 0);
+  heartbeat();
+  hbTimer = setInterval(()=>{
+    if(!AUTH) return;
+    playSecs = (parseInt(lsGet(ptKey()),10) || 0) + 20;   // 실시간 20초마다 누적
+    lsSet(ptKey(), String(playSecs));
+    heartbeat();
+  }, 20000);
+}
+function stopPresence(){ if(hbTimer){ clearInterval(hbTimer); hbTimer=null; } ONLINE=0; renderOnline(); }
+
+async function renderRank(){
+  const box = $('rankList'); if(!box) return;
+  const label = {net_worth:'순자산', shares:'보유 주식', play_secs:'접속 시간'}[rankKind];
+  $('rankMode').textContent = commOnline() ? `${label} 기준 · 전체 사용자` : '서버 미연결';
+  if(!commOnline()){
+    box.innerHTML = '<div class="empty-msg">랭킹은 커뮤니티 서버에 연결해야 표시됩니다.</div>';
+    $('rankNote').innerHTML = '운영자 패널에서 Supabase를 연결하면 모든 사용자의 랭킹이 집계됩니다.';
+    return;
+  }
+  $('rankNote').innerHTML = '20초마다 갱신됩니다. 게스트는 랭킹에 포함되지 않습니다.';
+  let rows = [];
+  try{
+    const r = await fetch(`${COMM.url}/rest/v1/${PLAYERS_TABLE}?select=id,username,net_worth,shares,play_secs,last_seen&is_guest=eq.false&order=${rankKind}.desc&limit=30`,
+      {headers: sbHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    rows = await r.json();
+  }catch(e){
+    box.innerHTML = `<div class="empty-msg">랭킹을 불러오지 못했습니다 — ${esc(e.message)}</div>`;
+    return;
+  }
+  if(!rows.length){ box.innerHTML = '<div class="empty-msg">아직 집계된 사용자가 없습니다.</div>'; return; }
+  const me = playerKey();
+  const now = Date.now();
+  box.innerHTML = rows.map((p,i)=>{
+    const live = (now - new Date(p.last_seen).getTime()) < 90000;
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    const val = rankKind==='net_worth' ? fmtW(p.net_worth)
+              : rankKind==='shares'    ? Number(p.shares||0).toLocaleString()+'주'
+              :                          fmtDur(p.play_secs);
+    return `<div class="rrow ${i<3?'top'+(i+1):''} ${p.id===me?'me':''}">
+      <span class="no">${medal}</span>
+      ${live?'<span class="live" title="접속 중"></span>':'<span style="flex:0 0 7px"></span>'}
+      <span class="who">${esc(p.username||'-')}</span>
+      <span class="val">${val}</span></div>`;
+  }).join('');
+}
+document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
+  rankKind = b.dataset.rank;
+  document.querySelectorAll('[data-rank]').forEach(x=>x.classList.toggle('on', x===b));
+  renderRank();
+});
 
 /* ==================== 운영자 패널 ==================== */
 /* 운영자 비밀번호의 기준은 저장소에 올린 admin.json 입니다.
@@ -1942,6 +2110,7 @@ function switchTab(t){
   if(t==='pf') renderPortfolio();
   if(t==='bank') renderBank();
   if(t==='community'){ lastChatSig=''; renderChat(true); }
+  if(t==='rank') renderRank();
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 
@@ -2266,6 +2435,7 @@ function toast(msg){
   clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1900);
 }
 window.addEventListener('beforeunload',()=>{ if(G) saveGame(true); });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && AUTH) heartbeat(); });
 window.closeModal=closeModal;
 
 /* 시작 */

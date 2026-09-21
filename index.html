@@ -1675,7 +1675,7 @@ function tick(){
 
   // 날짜
   if(G.tick % TICKS_PER_DAY === 0){
-    G.day++; G.stocks.forEach(s=>s.prev=s.price);
+    G.day++; G.stocks.forEach(s=>{ if(!s.dead) s.prev=s.price; });
     chargeInterest();
   }
   // AI 속보
@@ -1734,7 +1734,10 @@ function checkMargin(){
   if(!G || G.debt <= 0) return;
   // 마진콜은 '담보 강제 매각'입니다. 팔 주식이 없으면 청산할 것도 없으므로 건드리지 않습니다.
   if(!Object.values(G.holdings).some(h=>h.qty>0)) return;
-  if(netWorthOf(G) >= G.debt*0.25) return;   // 실제 증권사처럼 담보유지비율을 빡빡하게
+  // 재기 자금 2만원까지는 담보 없이 빌려주는 돈이므로 마진콜 대상에서 뺀다
+  const callable = Math.max(0, G.debt - 20000);
+  if(callable <= 0) return;
+  if(netWorthOf(G) >= callable*0.25) return;   // 그 위로는 담보유지비율 25%
   let sold = 0;
   G.stocks.forEach(s=>{
     const h = G.holdings[s.id]; if(!h || !h.qty) return;
@@ -1814,7 +1817,7 @@ function showFlash(n){
   f.style.background = n.good ? 'linear-gradient(135deg,#ff2d4d,#b8102b)' : 'linear-gradient(135deg,#2a5fd6,#12307a)';
   f.innerHTML = `<small>${n.mega?'🚨 초대형 속보':'속보'} · ${esc(n.by)} 생성</small>${esc(n.head)}`;
   f.classList.add('show');
-  clearTimeout(showFlash.t); showFlash.t=setTimeout(()=>f.classList.remove('show'), 5200);
+  clearTimeout(showFlash.t); showFlash.t=setTimeout(()=>f.classList.remove('show'), 6000);
 }
 function updateTicker(){
   const t = G.news.slice(0,12).map(n=>`<span>${n.good?'🔺':'🔻'} ${esc(n.head)}</span>`).join('');
@@ -1852,7 +1855,7 @@ function sparkSVG(hist, up){
 function renderGrid(mkt, elId){
   const el=$(elId);
   el.innerHTML = G.stocks.filter(s=>s.mkt===mkt).map(s=>{
-    const d = (s.price/s.prev-1)*100;
+    const d = (s.dead || !(s.prev > 0)) ? 0 : (s.price/s.prev-1)*100;
     const h = G.holdings[s.id];
     const px = mkt==='US' ? fmtU(s.price) : Math.round(s.price).toLocaleString()+'원';
     const sub = mkt==='US' ? `<span style="font-size:11px;color:var(--sub)"> ≈${Math.round(s.price*G.fx).toLocaleString()}원</span>` : '';
@@ -1861,7 +1864,7 @@ function renderGrid(mkt, elId){
     return `<button type="button" class="card${s.dead?' dead':''}" data-stock="${esc(s.id)}">
       <div class="row1"><span class="ico">${esc(s.ico)}</span><span class="nm">${esc(s.name)}</span>${flag}<span class="sec">${esc(s.sec)}</span></div>
       <div class="px">${px}${sub}</div>
-      <div class="chg ${clsOf(d)}">${d>0?'▲':d<0?'▼':'—'} ${sign(d)}% <span style="color:var(--sub);font-weight:600">(전일대비)</span></div>
+      <div class="chg ${clsOf(d)}">${s.dead?'거래 종료':`${d>0?'▲':d<0?'▼':'—'} ${sign(d)}% <span style="color:var(--sub);font-weight:600">(전일대비)</span>`}</div>
       ${sparkSVG(s.hist, d>=0)}
       ${h&&h.qty?`<div class="hold">보유 ${h.qty.toLocaleString()}주 · 평가손익 ${holdPLText(s,h)}</div>`:''}
     </button>`;
@@ -2011,7 +2014,7 @@ function maxBuy(s){
 function refreshTradeModal(){
   if(!openStockId) return;
   const s=G.stocks.find(x=>x.id===openStockId); if(!s || !$('tradeInfo')) return;
-  const d=(s.price/s.prev-1)*100;
+  const d=(s.dead || !(s.prev > 0)) ? 0 : (s.price/s.prev-1)*100;
   const h=G.holdings[s.id];
   $('tradeInfo').innerHTML = `
     <div class="kv"><span>현재가</span><b class="${clsOf(d)}">${s.mkt==='US'?fmtU(s.price):Math.round(s.price).toLocaleString()+'원'} (${sign(d)}%)</b></div>

@@ -2081,7 +2081,7 @@ const PATCH_NOTES = [
       ['del','모든 저장 기록을 초기화했습니다. 슬롯 6칸이 모두 비워지고 1만원부터 다시 시작합니다'],
       ['chg','정산 오류로 벌어졌던 격차를 없애기 위한 조치입니다. 계정과 아이디는 그대로 쓰실 수 있습니다'],
       ['new','초기화 기념으로 굿모닝 보너스와 오늘 하루 보너스를 다시 받을 수 있습니다'],
-      ['chg','상장폐지는 국내·해외를 통틀어 하루 한 종목까지만 발생합니다'],
+      ['chg','상장폐지는 국내·해외를 통틀어 실제 하루에 한 종목까지만 발생합니다'],
     ]},
   { v:'1.9', date:'2026-09-21', title:'유저 기능 공개 · 카지노 정산 수정',
     items:[
@@ -2265,7 +2265,7 @@ const VOL_SCALE = 1.5;
 function freshMarket(session){
   return {
     session, t: 0, fx: 1380, mkt: 0, news: [],
-    delistDay: -1, delistedToday: 0,        // 상장폐지는 하루 한 종목까지
+    delisted: 0,                            // 이 장에서 이미 정리된 종목 수 (상장폐지는 실제 하루 한 종목)
     stocks: STOCK_DEF.map(d=>({...d, vol:d.vol*VOL_SCALE, base:d.price, prev:d.price, mom:0, fair:d.price, vs:1,
       beta:Math.max(0.55, Math.min(1.8, d.vol/0.030)), warn:0, warned:false, dead:false, hist:[d.price]}))
   };
@@ -2285,10 +2285,15 @@ function stepMarket(M, collectNews){
   // 이 틱의 실제 시각으로 이벤트를 판정한다 — 누가 언제 계산해도 같은 값이 나와야 한다
   const vb = volBoostAt(sessionStartMs(M.session) + t*1000);
 
-  /* 상장폐지는 국내·해외를 통틀어 하루 한 종목까지만.
-     조건을 채운 종목이 여럿이면 가장 많이 떨어진 하나만 정리하고 나머지는 다음 날로 넘긴다. */
-  const day = Math.floor(t / TICKS_PER_DAY);
-  if(M.delistDay !== day){ M.delistDay = day; M.delistedToday = 0; }
+  /* 상장폐지는 국내·해외를 통틀어 실제 하루에 한 종목까지만.
+     장이 30분마다 새로 열리면서 종목도 되살아나므로, 장 사이에 값을 넘길 수가 없다.
+     그래서 '오늘 폐지가 일어날 장'을 날짜 시드로 미리 하나 정해 둔다.
+     날짜만 알면 누구나 같은 장을 고르므로 접속 시점과 무관하게 결과가 같다. */
+  const nowMs = sessionStartMs(M.session) + t*1000;
+  const dayIdx = Math.floor((nowMs + KST) / 86400000);           // KST 기준 며칠째인가
+  const sessInDay = Math.floor(((nowMs + KST) % 86400000) / (SESSION_TICKS*1000));
+  const pickSess = Math.floor(mulberry32((dayIdx * 0x9E3779B1) >>> 0)() * (86400 / SESSION_TICKS));
+  const canDelist = (sessInDay === pickSess) && M.delisted < 1;
   const doomed = [];
 
   for(const s of M.stocks){
@@ -2317,11 +2322,11 @@ function stepMarket(M, collectNews){
     }
     if(s.warn > 45 || ratio < 0.05) doomed.push({ s, ratio });
   }
-  if(doomed.length && M.delistedToday < 1){
+  if(doomed.length && canDelist){
     doomed.sort((a,b)=> a.ratio - b.ratio || (a.s.id < b.s.id ? -1 : 1));   // 동률이어도 순서가 갈리지 않게
     const s = doomed[0].s;
     s.dead = true; s.price = 0;
-    M.delistedToday++;
+    M.delisted++;
     if(collectNews) M.news.unshift(mkNews(`[상장폐지] ${s.name} 상장폐지 결정… 정리매매 없이 거래 종료`, false, s.name, 0, t, M.session));
   }
   if(crashed && collectNews){

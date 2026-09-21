@@ -452,7 +452,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="news">📰 뉴스</button>
     <button data-tab="community">💬 커뮤니티</button>
     <button data-tab="rank">🏆 랭킹</button>
-    <button data-tab="users">👥 유저 🚧</button>
+    <button data-tab="users">👥 유저</button>
     <button data-tab="patch">📋 패치노트</button>
   </nav>
 
@@ -805,6 +805,7 @@ function newGame(name){
     stocks:[], news:[], assetHist:[START_CASH], mktSession:null, lastDay:1,
     debt:0, bank:[], speed:1,
     stats:{trades:0, fee:0, cwin:0, close:0, max:START_CASH, interest:0, loans:0},
+    pend:null,                             // 연출 중인 카지노 판의 예약 당첨금
     slot:0, created:Date.now()
   };
 }
@@ -852,6 +853,9 @@ function sane(g){
     cwin:Number(st.cwin)||0, close:Number(st.close)||0,
     max:Number(st.max)||g.cash, interest:Number(st.interest)||0, loans:Number(st.loans)||0
   };
+  // 손상된 예약 당첨금은 버린다. 음수나 NaN이 그대로 지급되면 안 된다.
+  const pw = g.pend ? Math.floor(Number(g.pend.win)) : 0;
+  g.pend = (pw > 0 && isFinite(pw)) ? { win: pw } : null;
   return g;
 }
 function loadUserSlots(){                          // 계정이 바뀌면 그 계정의 6칸을 불러온다
@@ -1474,7 +1478,7 @@ document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
    서버에는 "누가 누구에게 무엇을 보냈는지"만 기록됩니다.
    로그인한 계정만 이용할 수 있고, 게스트는 검색만 가능합니다.               */
 /* 서버 테이블 준비가 끝나면 true 로 바꾸면 그대로 열립니다. */
-const USERS_ENABLED = false;
+const USERS_ENABLED = true;
 let FRIENDS = [], waTarget = null, usersTimer = null, lastResults = [];
 const myLc = ()=> (AUTH && AUTH.mode==='user') ? AUTH.id : null;
 const usersReady = ()=> USERS_ENABLED && commOnline() && !!myLc();
@@ -1500,8 +1504,9 @@ async function toggleFriend(lc, name){
   if(!usersReady()) return toast('계정으로 로그인하고 서버에 연결된 상태에서만 가능합니다');
   try{
     if(isFriend(lc)){
-      await fetch(COMM.url + '/rest/v1/friends?user_lc=eq.' + encodeURIComponent(myLc()) + '&friend_lc=eq.' + encodeURIComponent(lc),
+      const r = await fetch(COMM.url + '/rest/v1/friends?user_lc=eq.' + encodeURIComponent(myLc()) + '&friend_lc=eq.' + encodeURIComponent(lc),
         {method:'DELETE', headers: sbHeaders()});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
       toast(name + ' 님을 친구에서 삭제했습니다');
     }else{
       const r = await sbPost('friends', {user_lc:myLc(), friend_lc:lc, friend_name:name});
@@ -2035,6 +2040,7 @@ function startGame(slot){
   syncMarket();
 
   resetCasino(); overShown=false;
+  payPending(true);            // 연출 도중에 끊긴 판이 있으면 당첨금부터 지급한다
   claimMoney();
   showScreen('game');
   switchTab('kr'); renderAll(); renderNews(); updateTicker();
@@ -2052,6 +2058,7 @@ function updateNewsCounter(){
 }
 
 function exitGame(){
+  payPending(true);            // 연출 중에 나가더라도 당첨금은 반드시 지급하고 떠난다
   saveGame(true); if(timer) clearInterval(timer); timer=null; G=null;
   resetCasino(); overShown=false;
   renderSlots(); showScreen('select');
@@ -2062,10 +2069,21 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'1.9', date:'2026-09-21', title:'유저 기능 공개 · 카지노 정산 수정',
+    items:[
+      ['new','유저 탭이 열렸습니다 — 친구 · 귓속말 · 기부를 쓸 수 있습니다'],
+      ['fix','카지노 결과가 베팅하는 순간 확정되어 바로 저장됩니다'],
+      ['fix','릴이 도는 도중에 나가거나 새로고침해도 베팅액이 사라지지 않습니다. 못 받은 당첨금은 다시 들어올 때 지급됩니다'],
+      ['chg','한 번에 한 판만 돌릴 수 있습니다. 슬롯이 도는 동안에는 홀짝을 걸 수 없습니다'],
+      ['del','정산 오류로 부풀려진 기록을 정리하기 위해 모든 랭킹을 초기화했습니다'],
+    ]},
   { v:'1.8', date:'2026-09-21', title:'유저 시스템',
     items:[
+      ['new','유저 탭 추가 — 로그인에 쓰는 아이디로 다른 사용자를 검색할 수 있습니다'],
+      ['new','친구 추가/삭제'],
+      ['new','귓속말 — 1:1로 대화할 수 있습니다'],
+      ['new','기부 — 다른 사용자에게 돈을 보낼 수 있습니다. 받는 사람이 접속하면 자동 지급됩니다'],
       ['new','패치노트 탭. 업데이트가 있으면 접속할 때 자동으로 안내합니다'],
-      ['chg','유저 탭(친구 · 귓속말 · 기부)은 준비 중입니다. 곧 열립니다'],
     ]},
   { v:'1.7', date:'2026-09-21', title:'시장 동기화',
     items:[
@@ -2778,88 +2796,115 @@ document.querySelectorAll('[data-oebet]').forEach(b=>b.onclick=()=>{
   $('oeBet').value = v==='max' ? Math.max(1000,Math.floor(G.cash)) : v;
 });
 
-let spinning=false, casinoTimers=[];
+/* 한 판의 결과는 '베팅하는 순간' 확정되어 곧바로 저장됩니다(G.pend).
+   릴과 주사위는 이미 정해진 결과를 보여주는 연출일 뿐이고, 당첨금은 연출이 끝날 때 들어옵니다.
+   도중에 새로고침하거나 판을 떠나면 다음에 들어올 때 밀린 당첨금을 정산합니다.
+   이렇게 해야 베팅액이 증발하지도 않고, 릴을 보고 새로고침해서 베팅을 무를 수도 없습니다. */
+let casinoBusy=false, casinoTimers=[];
 function clearCasinoTimers(){ casinoTimers.forEach(t=>{ clearTimeout(t); clearInterval(t); }); casinoTimers=[]; }
+function lockCasino(on){
+  casinoBusy = on;
+  if($('slotSpin')) $('slotSpin').disabled = on;
+  ['betOdd','betEven','betExact'].forEach(i=>{ if($(i)) $(i).disabled = on; });
+  document.querySelectorAll('[data-slotbet],[data-oebet]').forEach(b=>{ b.disabled = on; });
+  ['slotBet','oeBet','oePick'].forEach(i=>{ if($(i)) $(i).disabled = on; });
+}
 function resetCasino(){                       // 판을 떠나거나 새로 시작할 때 잠금을 반드시 푼다
   clearCasinoTimers();
-  spinning=false; oeBusy=false;
-  if($('slotSpin')) $('slotSpin').disabled=false;
-  ['betOdd','betEven','betExact'].forEach(i=>{ if($(i)) $(i).disabled=false; });
+  lockCasino(false);
   [0,1,2].forEach(i=>{ if($('r'+i)) $('r'+i).classList.remove('spin'); });
 }
+/* 예약된 당첨금을 지급한다. 연출이 끝났을 때, 그리고 판에 들어올 때 호출한다. */
+function payPending(announce){
+  if(!G || !G.pend) return 0;
+  const win = Math.floor(Number(G.pend.win)||0);
+  G.pend = null;
+  if(win>0){
+    G.cash += win;
+    if(announce) toast(`🎰 정산되지 않은 당첨금 ${win.toLocaleString()}원을 지급했습니다`);
+  }
+  saveGame(true);
+  return win;
+}
+/* 베팅액을 즉시 빼고 당첨금을 예약해 저장한다 — 이 시점에 판돈이 확정된다. */
+function stakeCasino(bet, win){
+  G.cash -= bet;
+  if(win>0) G.stats.cwin++; else G.stats.close++;
+  G.pend = { win };
+  saveGame(true);
+}
+function finishRound(g, html, msg){
+  clearCasinoTimers(); lockCasino(false);
+  if(!G || G!==g) return;                     // 판이 바뀌었으면 그 판의 예약은 건드리지 않는다
+  payPending(false);
+  if(html) $(html.el).innerHTML = html.tx;
+  if(msg) toast(msg);
+  renderAll(); checkBroke();
+}
+
 $('slotSpin').onclick=()=>{
-  if(!G||spinning) return;
+  if(!G||casinoBusy) return;
   const bet=readBet('slotBet'); if(!bet) return;
-  const g=G;                                   // 정산 시점에 다른 판으로 바뀌었는지 확인할 기준
-  G.cash -= bet; spinning=true; $('slotSpin').disabled=true;
+  const g=G;
+  const f=[rollSym(),rollSym(),rollSym()];
+  let mult=0, msg='';
+  if(f[0].e===f[1].e && f[1].e===f[2].e){ mult=f[0].p; msg=`🎉 ${f[0].e}×3 잭팟! ×${mult}`; }
+  else if(f[0].e===f[1].e||f[1].e===f[2].e||f[0].e===f[2].e){ mult=1.3; msg='✨ 2개 일치! ×1.3'; }
+  const win=Math.floor(bet*mult);
+  stakeCasino(bet, win);                       // 결과를 먼저 확정하고 저장한다
+  lockCasino(true);
   $('slotResult').textContent=''; renderAll();
   const reels=[$('r0'),$('r1'),$('r2')];
   reels.forEach(r=>r.classList.add('spin'));
-  const final=[rollSym(),rollSym(),rollSym()];
   const stopped=[false,false,false];            // 멈춘 릴은 더 이상 건드리지 않는다
   const iv=setInterval(()=>reels.forEach((r,i)=>{ if(!stopped[i]) r.textContent=rollSym().e; }), 70);
   casinoTimers.push(iv);
   const stop=i=>casinoTimers.push(setTimeout(()=>{
     stopped[i]=true;
-    reels[i].textContent=final[i].e; reels[i].classList.remove('spin');
+    reels[i].textContent=f[i].e; reels[i].classList.remove('spin');
     if(i===2){
       clearInterval(iv);
-      try{ settleSlot(bet, final, g); }
-      finally{ spinning=false; $('slotSpin').disabled=false; }
+      finishRound(g,
+        { el:'slotResult', tx: win>0
+            ? `<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`
+            : `<span style="color:#ff7d8c">💀 꽝… -${bet.toLocaleString()}원</span>` },
+        mult>=20 ? `🎊 대박! ${win.toLocaleString()}원 획득!` : '');
     }
   }, 700+i*520));
   [0,1,2].forEach(stop);
 };
-function settleSlot(bet, f, g){
-  if(!G || G!==g) return;                       // 판을 떠났으면 정산하지 않는다
-  let mult=0, msg='';
-  if(f[0].e===f[1].e && f[1].e===f[2].e){ mult=f[0].p; msg=`🎉 ${f[0].e}×3 잭팟! ×${mult}`; }
-  else if(f[0].e===f[1].e||f[1].e===f[2].e||f[0].e===f[2].e){ mult=1.3; msg='✨ 2개 일치! ×1.3'; }
-  const win=Math.floor(bet*mult);
-  if(win>0){
-    G.cash+=win; G.stats.cwin++;
-    $('slotResult').innerHTML=`<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`;
-    if(mult>=20) toast(`🎊 대박! ${win.toLocaleString()}원 획득!`);
-  }else{
-    G.stats.close++;
-    $('slotResult').innerHTML=`<span style="color:#ff7d8c">💀 꽝… -${bet.toLocaleString()}원</span>`;
-  }
-  saveGame(true); renderAll(); checkBroke();
-}
 
-let oeBusy=false;
 function playOE(mode, pickNum){
-  if(!G||oeBusy) return;
+  if(!G||casinoBusy) return;
   const bet=readBet('oeBet'); if(!bet) return;
-  const g=G;                                   // 정산 기준이 되는 판
-  G.cash-=bet; oeBusy=true; renderAll();
-  ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=true);
-  $('oeResult').textContent='';
-  const n=RI(1,10);
-  let t=0;
-  const iv=setInterval(()=>{ $('oeDice').textContent=RI(1,10); if(++t>14){ clearInterval(iv); try{ reveal(); } finally { unlockOE(); } } }, 80);
-  casinoTimers.push(iv);
-  function unlockOE(){ ['betOdd','betEven','betExact'].forEach(i=>$(i).disabled=false); oeBusy=false; }
-  function reveal(){
-    if(!G || G!==g) return;                    // 판을 떠났으면 정산하지 않는다
-    $('oeDice').textContent=n;
-    const isOdd = n%2===1;
-    let win=0, msg='';
-    if(mode==='exact'){
-      if(n===pickNum){ win=Math.floor(bet*9); msg=`🎯 정타 적중! (${n}) ×9`; }
-      else msg=`❌ 결과 ${n} — 빗나감`;
-    }else{
-      const hit = (mode==='odd')===isOdd;
-      if(hit){ win=Math.floor(bet*1.9); msg=`✅ ${n} (${isOdd?'홀':'짝'}) 적중! ×1.9`; }
-      else msg=`❌ ${n} (${isOdd?'홀':'짝'}) — 빗나감`;
-    }
-    if(win>0){ G.cash+=win; G.stats.cwin++;
-      $('oeResult').innerHTML=`<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`;
-      if(mode==='exact') toast(`🎯 정타 성공! ${win.toLocaleString()}원!`);
-    }else{ G.stats.close++;
-      $('oeResult').innerHTML=`<span style="color:#ff7d8c">${msg} → -${bet.toLocaleString()}원</span>`; }
-    saveGame(true); renderAll(); checkBroke();
+  const g=G;
+  const n=RI(1,10), isOdd=n%2===1;
+  let win=0, msg='';
+  if(mode==='exact'){
+    if(n===pickNum){ win=Math.floor(bet*9); msg=`🎯 정타 적중! (${n}) ×9`; }
+    else msg=`❌ 결과 ${n} — 빗나감`;
+  }else{
+    const hit = (mode==='odd')===isOdd;
+    if(hit){ win=Math.floor(bet*1.9); msg=`✅ ${n} (${isOdd?'홀':'짝'}) 적중! ×1.9`; }
+    else msg=`❌ ${n} (${isOdd?'홀':'짝'}) — 빗나감`;
   }
+  stakeCasino(bet, win);                       // 결과를 먼저 확정하고 저장한다
+  lockCasino(true);
+  $('oeResult').textContent=''; renderAll();
+  let t=0;
+  const iv=setInterval(()=>{
+    $('oeDice').textContent=RI(1,10);
+    if(++t>14){
+      clearInterval(iv);
+      $('oeDice').textContent=n;
+      finishRound(g,
+        { el:'oeResult', tx: win>0
+            ? `<span style="color:var(--gold)">${msg} → +${(win-bet).toLocaleString()}원</span>`
+            : `<span style="color:#ff7d8c">${msg} → -${bet.toLocaleString()}원</span>` },
+        (win>0 && mode==='exact') ? `🎯 정타 성공! ${win.toLocaleString()}원!` : '');
+    }
+  }, 80);
+  casinoTimers.push(iv);
 }
 $('betOdd').onclick=()=>playOE('odd');
 $('betEven').onclick=()=>playOE('even');

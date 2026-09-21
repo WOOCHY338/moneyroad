@@ -63,6 +63,29 @@ input{font-family:inherit}
 #noticeBar .nb-x{flex:0 0 auto;background:none;color:inherit;opacity:.65;font-size:16px;padding:0 4px;line-height:1}
 #noticeBar .nb-x:hover{opacity:1}
 
+/* ===== 부동산 ===== */
+.lrow{display:flex;align-items:center;gap:11px;padding:12px;border-bottom:1px solid #1a2438;flex-wrap:wrap}
+.lrow:last-child{border-bottom:none}
+.lrow.mine{background:#16221a;border-radius:10px}
+.lrow .lt{flex:0 0 40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px}
+.lrow .lt.t1{background:linear-gradient(135deg,#ffd75e,#ff9d2e)}
+.lrow .lt.t2{background:linear-gradient(135deg,#b39dff,#7b5cff)}
+.lrow .lt.t3{background:linear-gradient(135deg,#7fd8ff,#2ec5ff)}
+.lrow .lt.t4{background:linear-gradient(135deg,#8fa1c4,#5b6b8c)}
+.lrow .li{flex:1;min-width:130px}
+.lrow .ln{font-weight:800;font-size:14.5px}
+.lrow .ls{font-size:11.5px;color:var(--sub);margin-top:3px}
+.lrow .lp{flex:0 0 auto;text-align:right}
+.lrow .lp b{font-size:14px;color:var(--gold);display:block}
+.lrow .lp span{font-size:11px;color:var(--sub)}
+.lrow .lacts{display:flex;gap:6px;flex-wrap:wrap}
+.lrow .lacts button{padding:9px 13px;border-radius:9px;font-size:12.5px;font-weight:800;min-height:38px;
+  background:var(--panel2);border:1px solid var(--line)}
+.lrow .lacts .buy{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border:none}
+.lrow .lacts button:disabled{opacity:.4;cursor:not-allowed}
+.lown{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#0f2a1f;color:var(--mint)}
+.lsale{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#2a2312;color:var(--gold)}
+
 /* ===== 유저 ===== */
 .usearch{display:flex;gap:8px;margin-bottom:12px}
 .usearch input{flex:1;min-width:0;background:#0a1020;border:1px solid var(--line);color:var(--txt);padding:12px;border-radius:11px;font-size:14px}
@@ -452,6 +475,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="news">📰 뉴스</button>
     <button data-tab="community">💬 커뮤니티</button>
     <button data-tab="rank">🏆 랭킹</button>
+    <button data-tab="land">🏞️ 부동산</button>
     <button data-tab="users">👥 유저</button>
     <button data-tab="patch">📋 패치노트</button>
   </nav>
@@ -575,6 +599,17 @@ tr:last-child td{border-bottom:none}
         </div>
         <div id="rankList"></div>
         <div class="warnbox" id="rankNote"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-land">
+      <div class="panel">
+        <h3>🏞️ 부동산 <small id="landMode">-</small></h3>
+        <div class="warnbox" id="landNote" style="margin:0 0 12px">
+          전국 10필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>
+          <b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.
+        </div>
+        <div id="landList"></div>
       </div>
     </div>
 
@@ -975,6 +1010,7 @@ function showScreen(id){
 function setAuth(a, keepSlots){
   AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
   if(!keepSlots) loadUserSlots();
+  loadAcct();
   renderProfile(); startPresence();
   FRIENDS=[]; waTarget=null; lastResults=[]; if(USERS_ENABLED) loadFriends();
   try{ renderSlots(); }
@@ -1061,6 +1097,10 @@ async function doLogin(){
         SRV_TOKEN = r.token; lsSet(TOKEN_KEY, SRV_TOKEN); srvMode = true;
         AUTH = {mode:'user', id:uid(name), name:r.username};
         applyServerSlots(r.slots);
+        if(r.meta && typeof r.meta === 'object'){       // 해금 정보는 계정을 따라다닌다
+          ACCT = r.meta; if(!ACCT.unlocked) ACCT.unlocked = {};
+          lsSet(ACCT_KEY(), JSON.stringify(ACCT));
+        }else loadAcct();
         toast('👋 ' + r.username + '님 환영합니다');
         return setAuth(AUTH, true);
       }
@@ -1103,7 +1143,7 @@ function bootAuth(){
   maybeShowPatch();
   ensureMarket();
   setInterval(()=>{ if(!G){ ensureMarket(); } const c=$('mktClock'); if(c) c.textContent=sessionClock(); }, 1000);
-  initAds(); initNotice(); startChatPoll(); startUsersPoll(); loadAdminRemote(); loadCommRemote();
+  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1834,6 +1874,128 @@ $('uQuery').onkeydown = e=>{ if(e.key==='Enter') searchUsers(); };
 $('waSend').onclick = sendWhisper;
 $('waIn').onkeydown = e=>{ if(e.key==='Enter') sendWhisper(); };
 
+/* ==================== 부동산 ====================
+   전국 10필지. 서버가 소유권을 관리하고, 값은 주인이 정합니다.
+   땅은 계정에 귀속되어 판을 새로 시작해도 유지되고, 임대수익은 장이 바뀔 때 들어옵니다. */
+const RENT_PER_SESSION = 0.025;      // 장(30분)마다 기준가의 2.5%
+let LANDS = [], landTimer = null;
+
+function myLands(){ return LANDS.filter(l=>l.owner_lc === myLc()); }
+function landRent(){ return myLands().reduce((a,l)=>a + Number(l.base_price)*RENT_PER_SESSION, 0); }
+
+async function loadLands(){
+  if(!commOnline()){ LANDS = []; return; }
+  try{ LANDS = await rpc('app_lands', {}); }catch(e){ LANDS = []; }
+}
+function landRow(l){
+  const mine = l.owner_lc === myLc();
+  const free = !l.owner_lc;
+  const canBuy = isUnlocked('land') && myLc() && l.for_sale && !mine && G;
+  let acts = '';
+  if(mine){
+    acts = '<button data-land="' + esc(l.id) + '" data-act="sell">' + (l.for_sale ? '호가 변경' : '팔기') + '</button>' +
+           (l.for_sale ? '<button data-land="' + esc(l.id) + '" data-act="cancel">거두기</button>' : '');
+  }else if(l.for_sale){
+    acts = '<button class="buy" data-land="' + esc(l.id) + '" data-act="buy"' + (canBuy?'':' disabled') + '>사기</button>';
+  }
+  const badge = mine ? '<span class="lown">내 땅</span>'
+              : l.for_sale ? '<span class="lsale">' + (free ? '매물' : '매물 (' + esc(l.owner_name||'') + ')') + '</span>'
+              : '<span class="usub" style="font-size:11px">' + esc(l.owner_name||'') + ' 소유</span>';
+  return '<div class="lrow ' + (mine?'mine':'') + '">' +
+    '<div class="lt t' + l.tier + '">🏞️</div>' +
+    '<div class="li"><div class="ln">' + esc(l.name) + ' ' + badge + '</div>' +
+    '<div class="ls">' + esc(l.region) + ' · 기준가 ' + fmtW(l.base_price) +
+    ' · 임대 ' + fmtW(Number(l.base_price)*RENT_PER_SESSION) + '/장</div></div>' +
+    '<div class="lp"><b>' + (l.for_sale ? fmtW(l.price) : '—') + '</b><span>' + (l.for_sale?'호가':'비매물') + '</span></div>' +
+    '<div class="lacts">' + acts + '</div></div>';
+}
+async function renderLand(){
+  const el = $('landList'); if(!el) return;
+  const mode = $('landMode');
+  if(!commOnline()){ if(mode) mode.textContent='서버 미연결'; el.innerHTML = '<div class="empty-msg">부동산은 서버에 연결해야 이용할 수 있습니다.</div>'; return; }
+  if(!myLc()){ if(mode) mode.textContent='게스트는 볼 수만 있습니다'; }
+  else if(!isUnlocked('land')){ if(mode) mode.textContent='잠김 — 50,000원으로 해금'; }
+  else { const n=myLands().length; if(mode) mode.textContent = n ? ('내 땅 '+n+'필지 · 임대 '+fmtW(landRent())+'/장') : '아직 가진 땅이 없습니다'; }
+  await loadLands();
+  el.innerHTML = LANDS.length ? LANDS.map(landRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
+  el.querySelectorAll('[data-land]').forEach(b=>{
+    b.onclick = ()=>{
+      const l = LANDS.find(x=>x.id===b.dataset.land); if(!l) return;
+      if(b.dataset.act==='buy')    buyLand(l);
+      if(b.dataset.act==='sell')   sellLand(l);
+      if(b.dataset.act==='cancel') listLand(l, 0, false);
+    };
+  });
+}
+function buyLand(l){
+  if(!isUnlocked('land')) return toast('부동산을 먼저 해금해주세요');
+  if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
+  const price = Number(l.price);
+  openModal('<h2>🏞️ ' + esc(l.name) + '</h2>' +
+    '<div class="kv"><span>지역</span><b>' + esc(l.region) + '</b></div>' +
+    '<div class="kv"><span>호가</span><b style="color:var(--gold)">' + fmtW(price) + '</b></div>' +
+    '<div class="kv"><span>임대수익</span><b>' + fmtW(Number(l.base_price)*RENT_PER_SESSION) + ' / 장(30분)</b></div>' +
+    '<div class="kv"><span>내 현금</span><b>' + fmtW(G.cash) + '</b></div>' +
+    (l.owner_name ? '<div class="kv"><span>현재 주인</span><b>' + esc(l.owner_name) + '</b></div>' : '') +
+    '<button class="big-btn" id="lbGo" style="margin-top:14px"' + (G.cash < price ? ' disabled' : '') + '>' +
+    (G.cash < price ? '현금이 부족합니다' : fmtW(price) + '에 사기') + '</button>' +
+    '<div class="warnbox" style="margin-top:12px">땅은 계정에 귀속됩니다. 새 판을 시작해도 그대로 남습니다.' +
+    (l.owner_name ? '<br>대금은 현재 주인에게 지급됩니다.' : '') + '</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  const go = $('lbGo'); if(!go || go.disabled) return;
+  go.onclick = async ()=>{
+    go.disabled = true;
+    try{
+      const r = await rpc('app_land_buy', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id});
+      if(!r.ok){ go.disabled=false; return toast(r.err || '구매하지 못했습니다'); }
+      G.cash -= Number(r.price); saveGame(true); renderAll();
+      closeModal(); toast('🏞️ ' + r.name + ' 을(를) 샀습니다');
+      renderLand();
+    }catch(e){ go.disabled=false; toast('실패: ' + e.message); }
+  };
+}
+function sellLand(l){
+  openModal('<h2>💰 ' + esc(l.name) + ' 내놓기</h2>' +
+    '<div class="kv"><span>기준가</span><b>' + fmtW(l.base_price) + '</b></div>' +
+    '<div class="kv"><span>현재 호가</span><b>' + (l.for_sale ? fmtW(l.price) : '비매물') + '</b></div>' +
+    '<input class="auth-in" id="lsAmt" type="number" min="1000" step="1000" value="' + Math.round(l.price) + '" style="margin-top:12px" aria-label="판매 호가">' +
+    '<div class="bet-row" style="margin-bottom:10px">' +
+    '<button data-ls="1">기준가</button><button data-ls="1.5">1.5배</button>' +
+    '<button data-ls="2">2배</button><button data-ls="3">3배</button></div>' +
+    '<button class="big-btn" id="lsGo">이 값에 내놓기</button>' +
+    '<div class="warnbox" style="margin-top:12px">누구든 이 값을 내면 바로 소유권이 넘어갑니다.<br>대금은 내 계정으로 들어옵니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  document.querySelectorAll('[data-ls]').forEach(b=>b.onclick=()=>{
+    $('lsAmt').value = Math.round(Number(l.base_price) * Number(b.dataset.ls));
+  });
+  $('lsGo').onclick = ()=>listLand(l, Math.floor(Number($('lsAmt').value)||0), true);
+}
+async function listLand(l, price, on){
+  try{
+    const r = await rpc('app_land_sell', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_price:price||0, p_on:on});
+    if(!r.ok) return toast(r.err || '처리하지 못했습니다');
+    closeModal();
+    toast(on ? ('💰 ' + l.name + ' 을(를) ' + fmtW(price) + '에 내놓았습니다') : (l.name + ' 매물을 거두었습니다'));
+    renderLand();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+/* 장이 바뀔 때 임대수익 지급 */
+async function payRent(){
+  if(!G || !myLc() || !isUnlocked('land')) return;
+  await loadLands();
+  const rent = landRent();
+  if(rent > 0){
+    G.cash += rent; saveGame(true); renderAll();
+    toast('🏞️ 임대수익 ' + fmtW(rent) + '이 들어왔습니다');
+  }
+}
+function startLandPoll(){
+  if(landTimer) clearInterval(landTimer);
+  landTimer = setInterval(()=>{
+    if($('tab-land') && $('tab-land').classList.contains('on')) renderLand();
+  }, 15000);
+}
+
 /* ==================== 운영자 패널 ==================== */
 /* 운영자 비밀번호의 기준은 저장소에 올린 admin.json 입니다.
    그 파일은 저장소 주인만 바꿀 수 있으므로, 접속자가 제멋대로 운영자를 자칭할 수 없습니다.
@@ -2176,6 +2338,14 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.2', date:'2026-09-22', title:'부동산 — 전국 10필지',
+    items:[
+      ['new','부동산 탭 추가. 50,000원으로 해금하면 전국 10필지를 사고팔 수 있습니다'],
+      ['new','땅은 10곳뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다'],
+      ['new','땅은 계정에 귀속됩니다. 새 판을 시작해도 내 땅은 그대로 남습니다'],
+      ['new','장(30분)이 바뀔 때마다 기준가의 2.5%를 임대수익으로 받습니다'],
+      ['chg','해금이 계정 단위로 바뀌었습니다. 해외주식·카지노·부동산 모두 한 번 열면 영구히 유지됩니다'],
+    ]},
   { v:'2.1', date:'2026-09-22', title:'서버 계정 — 어느 기기에서든 접속',
     items:[
       ['new','계정과 진행 상황이 서버에 저장됩니다. 폰에서 하던 걸 PC에서 그대로 이어서 할 수 있습니다'],
@@ -2570,6 +2740,7 @@ function syncMarket(){
     }
     G.mktSession = MARKET.session;
     G.assetHist = [netWorthOf(G)];
+    payRent();
   }
 
   // 상장폐지된 종목을 들고 있으면 전액 손실
@@ -2831,9 +3002,26 @@ const UNLOCKS = {
             desc:'엔비디아 · 애플 · 테슬라 등 14개 해외 종목이 열립니다. 환율 변동이 함께 적용됩니다.' },
   casino: { tab:'casino', cost:35000, nm:'🎰 카지노',
             desc:'슬롯머신과 홀짝 게임이 열립니다. 하우스가 유리하니 여윳돈으로만 하세요.' },
+  land:   { tab:'land',   cost:50000, nm:'🏞️ 부동산',
+            desc:'전국 10필지를 사고팔 수 있습니다. 땅은 계정에 귀속되어 새 판을 시작해도 그대로 남습니다.' },
 };
+/* 해금은 계정 단위로 한 번만 하면 영구히 유지됩니다. */
+const ACCT_KEY = ()=> 'MONEYROAD_ACCT:' + (AUTH ? (AUTH.mode==='user' ? 'u_'+AUTH.id : 'guest') : 'guest');
+let ACCT = {unlocked:{}};
+function loadAcct(){
+  try{ const o = JSON.parse(lsGet(ACCT_KEY())); if(o && typeof o==='object'){ ACCT = o; } else ACCT = {unlocked:{}}; }
+  catch(e){ ACCT = {unlocked:{}}; }
+  if(!ACCT.unlocked || typeof ACCT.unlocked!=='object') ACCT.unlocked = {};
+  return ACCT;
+}
+function saveAcct(){
+  lsSet(ACCT_KEY(), JSON.stringify(ACCT));
+  if(srvMode && AUTH && AUTH.mode==='user' && SRV_TOKEN && srvUp()){
+    rpc('app_save_meta', {p_user:AUTH.name, p_token:SRV_TOKEN, p_meta:ACCT}).catch(()=>{});
+  }
+}
 const lockOf = tab => Object.keys(UNLOCKS).find(k=>UNLOCKS[k].tab===tab);
-function isUnlocked(key){ return !!(G && G.unlocked && G.unlocked[key]); }
+function isUnlocked(key){ return !!(ACCT.unlocked && ACCT.unlocked[key]); }
 function renderNavLocks(){
   if(!G) return;
   for(const key in UNLOCKS){
@@ -2860,7 +3048,7 @@ function askUnlock(key){
   if(short <= 0) $('unlockGo').onclick = ()=>{
     if(G.cash < u.cost) return toast('현금이 부족합니다');      // 모달을 열어둔 사이에 줄었을 수 있다
     G.cash -= u.cost;
-    G.unlocked[key] = true;
+    ACCT.unlocked[key] = true; saveAcct();
     bankLog(`🔓 ${u.nm} 잠금해제 — ${u.cost.toLocaleString()}원`);
     saveGame(true); renderAll(); renderNavLocks();
     closeModal(); toast(`🔓 ${u.nm} — 잠금해제 완료!`);
@@ -2878,6 +3066,7 @@ function switchTab(t){
   if(t==='bank') renderBank();
   if(t==='community'){ lastChatSig=''; renderChat(true); }
   if(t==='rank') renderRank();
+  if(t==='land') renderLand();
   if(t==='users') renderUsers();
   if(t==='patch'){ renderPatch(); const v=$('patchVer'); if(v) v.textContent='현재 v'+APP_VERSION; }
 }

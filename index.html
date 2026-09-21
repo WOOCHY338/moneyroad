@@ -635,7 +635,9 @@ tr:last-child td{border-bottom:none}
 <script>
 /* ==================== 데이터 ==================== */
 const START_CASH = 10000;
-const SAVE_KEY = 'MONEYROAD_SAVE_V1';
+/* 저장 키를 올리면 기존 세이브가 더 이상 읽히지 않아 모두 빈 슬롯에서 새로 시작합니다.
+   계정과 로그인 정보는 별도 키라 그대로 유지됩니다. */
+const SAVE_KEY = 'MONEYROAD_SAVE_V2';
 const TICK_MS = 1000;
 const NEWS_EVERY = 30;      // 30초마다 AI 속보
 const TICKS_PER_DAY = 20;
@@ -2074,6 +2076,12 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.0', date:'2026-09-21', title:'전체 초기화 — 모두 같은 출발선에서',
+    items:[
+      ['del','모든 저장 기록을 초기화했습니다. 슬롯 6칸이 모두 비워지고 1만원부터 다시 시작합니다'],
+      ['chg','정산 오류로 벌어졌던 격차를 없애기 위한 조치입니다. 계정과 아이디는 그대로 쓰실 수 있습니다'],
+      ['new','초기화 기념으로 굿모닝 보너스와 오늘 하루 보너스를 다시 받을 수 있습니다'],
+    ]},
   { v:'1.9', date:'2026-09-21', title:'유저 기능 공개 · 카지노 정산 수정',
     items:[
       ['new','유저 탭이 열렸습니다 — 친구 · 귓속말 · 기부를 쓸 수 있습니다'],
@@ -2222,7 +2230,7 @@ function volBoostAt(ms){ const e = eventAt(ms); return e ? e.boost : 1; }
    기간이 지나면 이 블록과 아래 claimLaunchBonus 호출부를 지우면 됩니다. */
 const LAUNCH_FROM = Date.UTC(2026, 8, 21, 12, 0, 0);   // 21:00 KST
 const LAUNCH_TO   = Date.UTC(2026, 8, 21, 13, 0, 0);   // 22:00 KST
-const LAUNCH_KEY  = 'MONEYROAD_LAUNCH_20260921';
+const LAUNCH_KEY  = 'MONEYROAD_LAUNCH_20260921_V2';   // 전체 초기화와 함께 다시 받을 수 있게
 function launchActive(){ const n = Date.now(); return n >= LAUNCH_FROM && n < LAUNCH_TO; }
 function claimLaunchBonus(){
   if(!G || !AUTH || !launchActive()) return;
@@ -2236,7 +2244,7 @@ function claimLaunchBonus(){
 }
 
 /* 굿모닝 접속 보너스 — 계정당 평생 딱 한 번. 매일 받는 것이 아닙니다. */
-const MORNING_KEY = 'MONEYROAD_MORNING';
+const MORNING_KEY = 'MONEYROAD_MORNING_V2';           // 전체 초기화와 함께 다시 받을 수 있게
 function claimMorningBonus(){
   if(!G || !AUTH) return;
   const e = eventAt(Date.now());

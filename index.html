@@ -452,7 +452,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="news">📰 뉴스</button>
     <button data-tab="community">💬 커뮤니티</button>
     <button data-tab="rank">🏆 랭킹</button>
-    <button data-tab="users">👥 유저</button>
+    <button data-tab="users">👥 유저 🚧</button>
     <button data-tab="patch">📋 패치노트</button>
   </nav>
 
@@ -924,7 +924,7 @@ function showScreen(id){
 function setAuth(a){
   AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
   loadUserSlots(); renderProfile(); startPresence();
-  FRIENDS=[]; waTarget=null; lastResults=[]; loadFriends();
+  FRIENDS=[]; waTarget=null; lastResults=[]; if(USERS_ENABLED) loadFriends();
   try{ renderSlots(); }
   catch(e){                                        // 어떤 이유로든 목록을 못 그리면 빈 슬롯으로 복구한다
     SLOTS = [null,null,null,null,null,null];
@@ -1473,9 +1473,11 @@ document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
    아이디와 비밀번호는 서버에 올리지 않습니다. 계정은 브라우저 안에만 있고,
    서버에는 "누가 누구에게 무엇을 보냈는지"만 기록됩니다.
    로그인한 계정만 이용할 수 있고, 게스트는 검색만 가능합니다.               */
+/* 서버 테이블 준비가 끝나면 true 로 바꾸면 그대로 열립니다. */
+const USERS_ENABLED = false;
 let FRIENDS = [], waTarget = null, usersTimer = null, lastResults = [];
 const myLc = ()=> (AUTH && AUTH.mode==='user') ? AUTH.id : null;
-const usersReady = ()=> commOnline() && !!myLc();
+const usersReady = ()=> USERS_ENABLED && commOnline() && !!myLc();
 
 function sbGet(path){
   return fetch(COMM.url + '/rest/v1/' + path, {headers: sbHeaders()})
@@ -1687,7 +1689,20 @@ async function loadMoneyLog(){
   }catch(e){ el.innerHTML = '<div class="empty-msg">불러오지 못했습니다 — ' + esc(e.message) + '</div>'; }
 }
 
+function showUsersWIP(){
+  const el = $('tab-users'); if(!el) return;
+  el.innerHTML = '<div class="panel" style="text-align:center;padding:40px 18px">' +
+    '<div style="font-size:52px;line-height:1">🚧</div>' +
+    '<h3 style="justify-content:center;font-size:18px;margin:14px 0 8px">유저 기능 준비 중입니다</h3>' +
+    '<p style="color:var(--sub);font-size:13.5px;line-height:1.9">' +
+    '친구 추가 · 귓속말 · 기부 기능을 열기 위한 작업을 진행하고 있습니다.<br>' +
+    '조금만 기다려주세요!</p>' +
+    '<div class="warnbox" style="max-width:420px;margin:18px auto 0;text-align:left">' +
+    '그동안 <b>💬 커뮤니티</b>에서 다른 사람들과 이야기할 수 있고,<br>' +
+    '<b>🏆 랭킹</b>에서 다른 사용자들의 순위를 볼 수 있습니다.</div></div>';
+}
 async function renderUsers(){
+  if(!USERS_ENABLED){ showUsersWIP(); return; }
   const m = $('usersMode');
   if(m) m.textContent = !commOnline() ? '서버 미연결'
     : (myLc() ? '아이디로 다른 사용자를 찾을 수 있습니다' : '게스트는 검색만 가능합니다');
@@ -1696,6 +1711,7 @@ async function renderUsers(){
 }
 function startUsersPoll(){
   if(usersTimer) clearInterval(usersTimer);
+  if(!USERS_ENABLED) return;
   usersTimer = setInterval(()=>{
     const t = $('tab-users');
     if(t && t.classList.contains('on')) loadWhispers(false);
@@ -2048,11 +2064,8 @@ $('btnSave').onclick=()=>saveGame(false);
 const PATCH_NOTES = [
   { v:'1.8', date:'2026-09-21', title:'유저 시스템',
     items:[
-      ['new','유저 탭 추가 — 로그인에 쓰는 아이디로 다른 사용자를 검색할 수 있습니다'],
-      ['new','친구 추가/삭제'],
-      ['new','귓속말 — 1:1로 대화할 수 있습니다'],
-      ['new','기부 — 다른 사용자에게 돈을 보낼 수 있습니다. 받는 사람이 접속하면 자동 지급됩니다'],
       ['new','패치노트 탭. 업데이트가 있으면 접속할 때 자동으로 안내합니다'],
+      ['chg','유저 탭(친구 · 귓속말 · 기부)은 준비 중입니다. 곧 열립니다'],
     ]},
   { v:'1.7', date:'2026-09-21', title:'시장 동기화',
     items:[

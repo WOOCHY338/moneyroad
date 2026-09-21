@@ -1880,7 +1880,7 @@ $('waIn').onkeydown = e=>{ if(e.key==='Enter') sendWhisper(); };
 const RENT_PER_SESSION = 0.025;      // 장(30분)마다 기준가의 2.5%
 let LANDS = [], landTimer = null;
 
-function myLands(){ return LANDS.filter(l=>l.owner_lc === myLc()); }
+function myLands(){ const me = myLc(); return me ? LANDS.filter(l=>l.owner_lc === me) : []; }
 function landRent(){ return myLands().reduce((a,l)=>a + Number(l.base_price)*RENT_PER_SESSION, 0); }
 
 async function loadLands(){
@@ -1888,13 +1888,15 @@ async function loadLands(){
   try{ LANDS = await rpc('app_lands', {}); }catch(e){ LANDS = []; }
 }
 function landRow(l){
-  const mine = l.owner_lc === myLc();
+  const mine = !!myLc() && l.owner_lc === myLc();
   const free = !l.owner_lc;
-  const canBuy = isUnlocked('land') && myLc() && l.for_sale && !mine && G;
+  const online = srvMode && !!SRV_TOKEN;                 // 서버 계정으로 로그인해야 거래할 수 있다
+  const canBuy = isUnlocked('land') && myLc() && online && l.for_sale && !mine && G;
   let acts = '';
   if(mine){
-    acts = '<button data-land="' + esc(l.id) + '" data-act="sell">' + (l.for_sale ? '호가 변경' : '팔기') + '</button>' +
-           (l.for_sale ? '<button data-land="' + esc(l.id) + '" data-act="cancel">거두기</button>' : '');
+    const d = online ? '' : ' disabled';
+    acts = '<button data-land="' + esc(l.id) + '" data-act="sell"' + d + '>' + (l.for_sale ? '호가 변경' : '팔기') + '</button>' +
+           (l.for_sale ? '<button data-land="' + esc(l.id) + '" data-act="cancel"' + d + '>거두기</button>' : '');
   }else if(l.for_sale){
     acts = '<button class="buy" data-land="' + esc(l.id) + '" data-act="buy"' + (canBuy?'':' disabled') + '>사기</button>';
   }
@@ -1915,6 +1917,7 @@ async function renderLand(){
   if(!commOnline()){ if(mode) mode.textContent='서버 미연결'; el.innerHTML = '<div class="empty-msg">부동산은 서버에 연결해야 이용할 수 있습니다.</div>'; return; }
   if(!myLc()){ if(mode) mode.textContent='게스트는 볼 수만 있습니다'; }
   else if(!isUnlocked('land')){ if(mode) mode.textContent='잠김 — 50,000원으로 해금'; }
+  else if(!(srvMode && SRV_TOKEN)){ if(mode) mode.textContent='서버 계정으로 로그인해야 거래할 수 있습니다'; }
   else { const n=myLands().length; if(mode) mode.textContent = n ? ('내 땅 '+n+'필지 · 임대 '+fmtW(landRent())+'/장') : '아직 가진 땅이 없습니다'; }
   await loadLands();
   el.innerHTML = LANDS.length ? LANDS.map(landRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
@@ -1929,6 +1932,7 @@ async function renderLand(){
 }
 function buyLand(l){
   if(!isUnlocked('land')) return toast('부동산을 먼저 해금해주세요');
+  if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 땅을 살 수 있습니다');
   if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
   const price = Number(l.price);
   openModal('<h2>🏞️ ' + esc(l.name) + '</h2>' +
@@ -1955,6 +1959,7 @@ function buyLand(l){
   };
 }
 function sellLand(l){
+  if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 매물을 내놓을 수 있습니다');
   openModal('<h2>💰 ' + esc(l.name) + ' 내놓기</h2>' +
     '<div class="kv"><span>기준가</span><b>' + fmtW(l.base_price) + '</b></div>' +
     '<div class="kv"><span>현재 호가</span><b>' + (l.for_sale ? fmtW(l.price) : '비매물') + '</b></div>' +
@@ -2996,7 +3001,7 @@ function renderNews(){
 
 /* ==================== 잠금해제 ====================
    국내주식은 처음부터 열려 있고, 해외주식과 카지노는 현금을 내고 엽니다.
-   해제 여부는 세이브 슬롯마다 따로 기록되므로, 새 판을 시작하면 다시 잠깁니다. */
+   해제 여부는 계정에 기록되므로 한 번 열면 새 판을 시작해도 유지됩니다. */
 const UNLOCKS = {
   us:     { tab:'us',     cost:25000, nm:'🌎 해외주식',
             desc:'엔비디아 · 애플 · 테슬라 등 14개 해외 종목이 열립니다. 환율 변동이 함께 적용됩니다.' },
@@ -3012,7 +3017,20 @@ function loadAcct(){
   try{ const o = JSON.parse(lsGet(ACCT_KEY())); if(o && typeof o==='object'){ ACCT = o; } else ACCT = {unlocked:{}}; }
   catch(e){ ACCT = {unlocked:{}}; }
   if(!ACCT.unlocked || typeof ACCT.unlocked!=='object') ACCT.unlocked = {};
+  migrateUnlocks();
   return ACCT;
+}
+/* 예전에는 해금이 슬롯마다 기록됐다. 이미 돈을 내고 연 사람이 잃지 않도록 계정으로 옮긴다. */
+function migrateUnlocks(){
+  if(ACCT.migrated) return;
+  let moved = false;
+  loadSlots().forEach(g=>{
+    if(!g || !g.unlocked) return;
+    ['us','casino'].forEach(k=>{ if(g.unlocked[k] === true && !ACCT.unlocked[k]){ ACCT.unlocked[k] = true; moved = true; } });
+  });
+  ACCT.migrated = true;
+  if(moved) toast('이전에 열어둔 기능을 계정으로 옮겼습니다 — 이제 새 판에서도 유지됩니다');
+  saveAcct();
 }
 function saveAcct(){
   lsSet(ACCT_KEY(), JSON.stringify(ACCT));

@@ -63,6 +63,27 @@ input{font-family:inherit}
 #noticeBar .nb-x{flex:0 0 auto;background:none;color:inherit;opacity:.65;font-size:16px;padding:0 4px;line-height:1}
 #noticeBar .nb-x:hover{opacity:1}
 
+/* ===== 유저 ===== */
+.usearch{display:flex;gap:8px;margin-bottom:12px}
+.usearch input{flex:1;min-width:0;background:#0a1020;border:1px solid var(--line);color:var(--txt);padding:12px;border-radius:11px;font-size:14px}
+.usearch input:focus{outline:none;border-color:var(--gold)}
+.usearch button{flex:0 0 auto;padding:12px 18px;border-radius:11px;font-weight:900;font-size:14px;background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00}
+.urow{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid #1a2438;flex-wrap:wrap}
+.urow:last-child{border-bottom:none}
+.urow .uav{flex:0 0 32px;width:32px;height:32px;border-radius:50%;background:#243050;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#8fa1c4}
+.urow .uinfo{flex:1;min-width:110px}
+.urow .unm{font-weight:800;font-size:14px}
+.urow .usub{font-size:11px;color:var(--sub);margin-top:2px}
+.urow .uacts{display:flex;gap:6px;flex-wrap:wrap}
+.urow .uacts button{padding:8px 11px;border-radius:9px;font-size:12px;font-weight:800;background:var(--panel2);border:1px solid var(--line);min-height:36px}
+.urow .uacts button:hover{border-color:var(--gold);color:var(--gold)}
+.urow .uacts .bfriend.on{background:#0f2a1f;color:var(--mint);border-color:#1d4a38}
+.urow .uacts .bdonate{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border:none}
+.mrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid #1a2438;font-size:13px}
+.mrow:last-child{border-bottom:none}
+.mrow .mw{flex:1;font-weight:700}
+.mrow time{font-size:11px;color:var(--sub)}
+
 /* ===== 패치노트 ===== */
 .pnote{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:11px}
 .pnh{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:9px}
@@ -431,6 +452,7 @@ tr:last-child td{border-bottom:none}
     <button data-tab="news">📰 뉴스</button>
     <button data-tab="community">💬 커뮤니티</button>
     <button data-tab="rank">🏆 랭킹</button>
+    <button data-tab="users">👥 유저</button>
     <button data-tab="patch">📋 패치노트</button>
   </nav>
 
@@ -553,6 +575,34 @@ tr:last-child td{border-bottom:none}
         </div>
         <div id="rankList"></div>
         <div class="warnbox" id="rankNote"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-users">
+      <div class="panel">
+        <h3>👥 유저 찾기 <small id="usersMode">-</small></h3>
+        <div class="usearch">
+          <input id="uQuery" maxlength="12" placeholder="아이디로 검색 (예: 존버킹)" autocomplete="off" aria-label="유저 아이디 검색">
+          <button id="uSearchBtn">검색</button>
+        </div>
+        <div id="uResults"></div>
+      </div>
+      <div class="panel">
+        <h3>⭐ 내 친구 <small id="friendCount"></small></h3>
+        <div id="friendList"></div>
+      </div>
+      <div class="panel">
+        <h3>💌 귓속말 <small id="waWith">상대를 선택하세요</small></h3>
+        <div class="chatlist" id="waList" style="height:240px"></div>
+        <div class="chatbar">
+          <input id="waIn" maxlength="300" placeholder="상대를 먼저 고르세요" disabled aria-label="귓속말 내용">
+          <button id="waSend" disabled>보내기</button>
+        </div>
+        <div class="warnbox" id="waNote">귓속말은 암호화되지 않습니다. 진짜 비밀번호나 개인정보는 적지 마세요.</div>
+      </div>
+      <div class="panel">
+        <h3>💸 송금 내역</h3>
+        <div id="moneyLog"></div>
       </div>
     </div>
 
@@ -874,6 +924,7 @@ function showScreen(id){
 function setAuth(a){
   AUTH = a; lsSet(AUTH_KEY, JSON.stringify(a));
   loadUserSlots(); renderProfile(); startPresence();
+  FRIENDS=[]; waTarget=null; lastResults=[]; loadFriends();
   try{ renderSlots(); }
   catch(e){                                        // 어떤 이유로든 목록을 못 그리면 빈 슬롯으로 복구한다
     SLOTS = [null,null,null,null,null,null];
@@ -952,7 +1003,7 @@ function bootAuth(){
   maybeShowPatch();
   ensureMarket();
   setInterval(()=>{ if(!G){ ensureMarket(); } const c=$('mktClock'); if(c) c.textContent=sessionClock(); }, 1000);
-  initAds(); initNotice(); startChatPoll(); loadAdminRemote(); loadCommRemote();
+  initAds(); initNotice(); startChatPoll(); startUsersPoll(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1418,6 +1469,244 @@ document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
   renderRank();
 });
 
+/* ==================== 유저 (검색 / 친구 / 귓속말 / 송금) ====================
+   아이디와 비밀번호는 서버에 올리지 않습니다. 계정은 브라우저 안에만 있고,
+   서버에는 "누가 누구에게 무엇을 보냈는지"만 기록됩니다.
+   로그인한 계정만 이용할 수 있고, 게스트는 검색만 가능합니다.               */
+let FRIENDS = [], waTarget = null, usersTimer = null, lastResults = [];
+const myLc = ()=> (AUTH && AUTH.mode==='user') ? AUTH.id : null;
+const usersReady = ()=> commOnline() && !!myLc();
+
+function sbGet(path){
+  return fetch(COMM.url + '/rest/v1/' + path, {headers: sbHeaders()})
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+}
+function sbPost(table, body, prefer){
+  return fetch(COMM.url + '/rest/v1/' + table, {method:'POST',
+    headers: sbHeaders({Prefer: prefer || 'return=minimal'}), body: JSON.stringify(body)});
+}
+
+/* ── 친구 ── */
+async function loadFriends(){
+  if(!usersReady()){ FRIENDS = []; return; }
+  try{
+    FRIENDS = await sbGet('friends?select=friend_lc,friend_name&user_lc=eq.' + encodeURIComponent(myLc()) + '&order=friend_name');
+  }catch(e){ FRIENDS = []; }
+}
+function isFriend(lc){ return FRIENDS.some(f=>f.friend_lc===lc); }
+async function toggleFriend(lc, name){
+  if(!usersReady()) return toast('계정으로 로그인하고 서버에 연결된 상태에서만 가능합니다');
+  try{
+    if(isFriend(lc)){
+      await fetch(COMM.url + '/rest/v1/friends?user_lc=eq.' + encodeURIComponent(myLc()) + '&friend_lc=eq.' + encodeURIComponent(lc),
+        {method:'DELETE', headers: sbHeaders()});
+      toast(name + ' 님을 친구에서 삭제했습니다');
+    }else{
+      const r = await sbPost('friends', {user_lc:myLc(), friend_lc:lc, friend_name:name});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      toast('⭐ ' + name + ' 님을 친구로 추가했습니다');
+    }
+    await loadFriends(); renderFriends(); renderSearch(lastResults);
+  }catch(e){ toast('실패: ' + e.message); }
+}
+function renderFriends(){
+  const el = $('friendList'); if(!el) return;
+  $('friendCount').textContent = FRIENDS.length ? (FRIENDS.length + '명') : '';
+  if(!usersReady()){ el.innerHTML = '<div class="empty-msg">계정으로 로그인하면 친구를 추가할 수 있습니다.</div>'; return; }
+  el.innerHTML = FRIENDS.length
+    ? FRIENDS.map(f=>userRow({username:f.friend_name, lc:f.friend_lc})).join('')
+    : '<div class="empty-msg">아직 친구가 없습니다.<br>위에서 아이디를 검색해 추가해보세요.</div>';
+  bindUserRows(el);
+}
+
+/* ── 검색 ── */
+function userRow(u){
+  const lc = u.lc || String(u.username||'').toLowerCase();
+  const me = lc === myLc();
+  const live = u.last_seen && (Date.now() - new Date(u.last_seen).getTime() < 90000);
+  const acts = me ? '' :
+    '<div class="uacts">' +
+    '<button class="bfriend ' + (isFriend(lc)?'on':'') + '" data-act="friend">' + (isFriend(lc)?'⭐ 친구':'+ 친구') + '</button>' +
+    '<button data-act="whisper">💌 귓속말</button>' +
+    '<button class="bdonate" data-act="donate">💸 기부</button></div>';
+  return '<div class="urow" data-lc="' + esc(lc) + '" data-name="' + esc(u.username) + '">' +
+    '<div class="uav">' + esc(String(u.username||'?').charAt(0).toUpperCase()) + '</div>' +
+    '<div class="uinfo"><div class="unm">' + esc(u.username) + (me?' <span style="font-size:11px;color:var(--sub)">(나)</span>':'') + '</div>' +
+    '<div class="usub">' + (u.net_worth!=null?fmtW(u.net_worth):'&nbsp;') + (live?' · 🟢 접속 중':'') + '</div></div>' +
+    acts + '</div>';
+}
+function bindUserRows(root){
+  root.querySelectorAll('.urow').forEach(row=>{
+    const lc = row.dataset.lc, name = row.dataset.name;
+    row.querySelectorAll('[data-act]').forEach(b=>{
+      b.onclick = ()=>{
+        if(b.dataset.act==='friend')  toggleFriend(lc, name);
+        if(b.dataset.act==='whisper') openWhisper(lc, name);
+        if(b.dataset.act==='donate')  openDonate(lc, name);
+      };
+    });
+  });
+}
+function renderSearch(rows){
+  lastResults = rows || [];
+  const el = $('uResults'); if(!el) return;
+  el.innerHTML = lastResults.length ? lastResults.map(userRow).join('')
+    : '<div class="empty-msg">아이디를 검색해보세요.</div>';
+  bindUserRows(el);
+}
+async function searchUsers(){
+  if(!commOnline()) return toast('서버에 연결되어 있지 않습니다');
+  const q = ($('uQuery').value||'').trim();
+  if(!q) return toast('검색할 아이디를 입력해주세요');
+  try{
+    const rows = await sbGet('players?select=id,username,net_worth,last_seen&is_guest=eq.false&username=ilike.*' +
+      encodeURIComponent(q) + '*&order=net_worth.desc&limit=20');
+    renderSearch(rows.map(r=>({username:r.username, lc:String(r.id||'').replace(/^u_/,''),
+      net_worth:r.net_worth, last_seen:r.last_seen})));
+  }catch(e){ $('uResults').innerHTML = '<div class="empty-msg">검색 실패 — ' + esc(e.message) + '</div>'; }
+}
+
+/* ── 귓속말 ── */
+function openWhisper(lc, name){
+  if(!usersReady()) return toast('계정으로 로그인해야 귓속말을 쓸 수 있습니다');
+  waTarget = {lc, name};
+  $('waWith').textContent = name + ' 님과의 대화';
+  $('waIn').disabled = false; $('waSend').disabled = false;
+  $('waIn').placeholder = name + ' 님에게 보낼 내용';
+  switchTab('users');
+  loadWhispers(true);
+  $('waIn').focus();
+}
+async function loadWhispers(force){
+  const box = $('waList'); if(!box) return;
+  if(!usersReady()){ box.innerHTML = '<div class="chatempty">계정으로 로그인하면 귓속말을 쓸 수 있습니다.</div>'; return; }
+  if(!waTarget){ box.innerHTML = '<div class="chatempty">위에서 상대를 골라 💌 귓속말을 눌러주세요.</div>'; return; }
+  try{
+    const me = encodeURIComponent(myLc()), other = encodeURIComponent(waTarget.lc);
+    const rows = await sbGet('whispers?select=id,from_lc,from_name,to_lc,body,created_at' +
+      '&or=(and(from_lc.eq.' + me + ',to_lc.eq.' + other + '),and(from_lc.eq.' + other + ',to_lc.eq.' + me + '))' +
+      '&order=id.desc&limit=60');
+    rows.reverse();
+    const sig = rows.map(r=>r.id).join(',');
+    if(!force && sig === loadWhispers.sig) return;
+    loadWhispers.sig = sig;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    box.innerHTML = rows.length ? rows.map(r=>{
+      const mine = r.from_lc === myLc();
+      let t = '';
+      try{ t = new Date(r.created_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch(e){}
+      const who = mine ? AUTH.name : r.from_name;
+      return '<div class="msg ' + (mine?'me':'') + '">' +
+        '<div class="av">' + esc(String(who).charAt(0).toUpperCase()) + '</div>' +
+        '<div class="body"><div class="who">' + esc(who) + '<time>' + t + '</time></div>' +
+        '<div class="tx">' + esc(r.body) + '</div></div></div>';
+    }).join('') : '<div class="chatempty">아직 주고받은 귓속말이 없습니다.</div>';
+    if(atBottom || force) box.scrollTop = box.scrollHeight;
+  }catch(e){ box.innerHTML = '<div class="chatempty">불러오지 못했습니다 — ' + esc(e.message) + '</div>'; }
+}
+async function sendWhisper(){
+  if(!usersReady() || !waTarget) return;
+  const inp = $('waIn'), body = (inp.value||'').trim();
+  if(!body) return;
+  inp.value=''; inp.disabled=true;
+  try{
+    const r = await sbPost('whispers', {from_lc:myLc(), from_name:AUTH.name, to_lc:waTarget.lc, body:body.slice(0,300)});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    loadWhispers.sig=''; await loadWhispers(true);
+  }catch(e){ toast('전송 실패: ' + e.message); inp.value=body; }
+  inp.disabled=false; inp.focus();
+}
+
+/* ── 기부(송금) ── */
+function openDonate(lc, name){
+  if(!usersReady()) return toast('계정으로 로그인해야 보낼 수 있습니다');
+  if(!G) return toast('게임을 시작한 뒤에 보낼 수 있습니다');
+  openModal('<h2>💸 ' + esc(name) + ' 님에게 기부</h2>' +
+    '<div class="kv"><span>내 현금</span><b style="color:var(--gold)">' + fmtW(G.cash) + '</b></div>' +
+    '<input class="auth-in" id="dnAmt" type="number" min="100" step="100" placeholder="보낼 금액 (100원 이상)" style="margin-top:12px" aria-label="기부 금액">' +
+    '<div class="bet-row" style="margin-bottom:10px">' +
+    '<button data-dn="1000">1천</button><button data-dn="10000">1만</button>' +
+    '<button data-dn="100000">10만</button><button data-dn="half">절반</button></div>' +
+    '<button class="big-btn" id="dnGo">보내기</button>' +
+    '<div class="warnbox" style="margin-top:12px">보낸 돈은 되돌릴 수 없습니다.<br>받는 사람이 접속하면 자동으로 지급됩니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  document.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{
+    $('dnAmt').value = b.dataset.dn==='half' ? Math.floor(G.cash/2) : b.dataset.dn;
+  });
+  $('dnGo').onclick = async ()=>{
+    const amt = Math.floor(Number($('dnAmt').value)||0);
+    if(amt < 100) return toast('100원 이상부터 보낼 수 있습니다');
+    if(amt > G.cash) return toast('현금이 부족합니다');
+    $('dnGo').disabled = true;
+    try{
+      const r = await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name, to_lc:lc, amount:amt});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      G.cash -= amt; saveGame(true); renderAll();
+      closeModal(); toast('💸 ' + name + ' 님에게 ' + amt.toLocaleString() + '원을 보냈습니다');
+      loadMoneyLog();
+    }catch(e){ $('dnGo').disabled=false; toast('전송 실패: ' + e.message); }
+  };
+}
+/* 받은 돈 자동 수령 — 내가 실제로 claimed로 바꾼 행만 지급해 중복 수령을 막는다 */
+async function claimMoney(){
+  if(!usersReady() || !G) return;
+  try{
+    const rows = await sbGet('transfers?select=id&to_lc=eq.' + encodeURIComponent(myLc()) + '&claimed=is.false&limit=50');
+    if(!rows.length) return;
+    const ids = rows.map(r=>r.id).join(',');
+    const res = await fetch(COMM.url + '/rest/v1/transfers?id=in.(' + ids + ')&claimed=is.false', {
+      method:'PATCH', headers: sbHeaders({Prefer:'return=representation'}),
+      body: JSON.stringify({claimed:true})
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const done = await res.json();
+    const total = done.reduce((a,r)=>a + Number(r.amount||0), 0);
+    if(total > 0){
+      G.cash += total; saveGame(true); renderAll();
+      const who = [...new Set(done.map(r=>r.from_name))].join(', ');
+      toast('🎁 ' + who + ' 님에게서 ' + Math.round(total).toLocaleString() + '원을 받았습니다');
+      loadMoneyLog();
+    }
+  }catch(e){}
+}
+async function loadMoneyLog(){
+  const el = $('moneyLog'); if(!el) return;
+  if(!usersReady()){ el.innerHTML = '<div class="empty-msg">계정으로 로그인하면 내역이 표시됩니다.</div>'; return; }
+  try{
+    const me = encodeURIComponent(myLc());
+    const rows = await sbGet('transfers?select=from_lc,from_name,to_lc,amount,created_at&or=(from_lc.eq.' + me + ',to_lc.eq.' + me + ')&order=id.desc&limit=30');
+    el.innerHTML = rows.length ? rows.map(r=>{
+      const mine = r.from_lc === myLc();
+      const fr = FRIENDS.find(f=>f.friend_lc===r.to_lc);
+      const other = mine ? (fr ? fr.friend_name : r.to_lc) : r.from_name;
+      let t = '';
+      try{ t = new Date(r.created_at).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(e){}
+      return '<div class="mrow"><span class="mw">' + (mine ? '▶ ' + esc(other) + ' 님에게' : '◀ ' + esc(other) + ' 님에게서') + '</span>' +
+        '<b class="' + (mine?'down':'up') + '">' + (mine?'-':'+') + Math.round(r.amount).toLocaleString() + '원</b><time>' + t + '</time></div>';
+    }).join('') : '<div class="empty-msg">아직 주고받은 내역이 없습니다.</div>';
+  }catch(e){ el.innerHTML = '<div class="empty-msg">불러오지 못했습니다 — ' + esc(e.message) + '</div>'; }
+}
+
+async function renderUsers(){
+  const m = $('usersMode');
+  if(m) m.textContent = !commOnline() ? '서버 미연결'
+    : (myLc() ? '아이디로 다른 사용자를 찾을 수 있습니다' : '게스트는 검색만 가능합니다');
+  await loadFriends();
+  renderFriends(); renderSearch(lastResults); loadWhispers(true); loadMoneyLog();
+}
+function startUsersPoll(){
+  if(usersTimer) clearInterval(usersTimer);
+  usersTimer = setInterval(()=>{
+    const t = $('tab-users');
+    if(t && t.classList.contains('on')) loadWhispers(false);
+    claimMoney();
+  }, 8000);
+}
+$('uSearchBtn').onclick = searchUsers;
+$('uQuery').onkeydown = e=>{ if(e.key==='Enter') searchUsers(); };
+$('waSend').onclick = sendWhisper;
+$('waIn').onkeydown = e=>{ if(e.key==='Enter') sendWhisper(); };
+
 /* ==================== 운영자 패널 ==================== */
 /* 운영자 비밀번호의 기준은 저장소에 올린 admin.json 입니다.
    그 파일은 저장소 주인만 바꿀 수 있으므로, 접속자가 제멋대로 운영자를 자칭할 수 없습니다.
@@ -1730,6 +2019,7 @@ function startGame(slot){
   syncMarket();
 
   resetCasino(); overShown=false;
+  claimMoney();
   showScreen('game');
   switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed();
@@ -1756,6 +2046,14 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'1.8', date:'2026-09-21', title:'유저 시스템',
+    items:[
+      ['new','유저 탭 추가 — 로그인에 쓰는 아이디로 다른 사용자를 검색할 수 있습니다'],
+      ['new','친구 추가/삭제'],
+      ['new','귓속말 — 1:1로 대화할 수 있습니다'],
+      ['new','기부 — 다른 사용자에게 돈을 보낼 수 있습니다. 받는 사람이 접속하면 자동 지급됩니다'],
+      ['new','패치노트 탭. 업데이트가 있으면 접속할 때 자동으로 안내합니다'],
+    ]},
   { v:'1.7', date:'2026-09-21', title:'시장 동기화',
     items:[
       ['new','모든 접속자가 같은 시세와 같은 속보를 봅니다. 접속 시점과 무관하게 화면이 똑같습니다'],
@@ -2300,6 +2598,7 @@ function switchTab(t){
   if(t==='bank') renderBank();
   if(t==='community'){ lastChatSig=''; renderChat(true); }
   if(t==='rank') renderRank();
+  if(t==='users') renderUsers();
   if(t==='patch'){ renderPatch(); const v=$('patchVer'); if(v) v.textContent='현재 v'+APP_VERSION; }
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));

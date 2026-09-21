@@ -2041,6 +2041,7 @@ function startGame(slot){
 
   resetCasino(); overShown=false;
   payPending(true);            // 연출 도중에 끊긴 판이 있으면 당첨금부터 지급한다
+  claimMorningBonus(); claimLaunchBonus();
   claimMoney();
   showScreen('game');
   switchTab('kr'); renderAll(); renderNews(); updateTicker();
@@ -2075,6 +2076,10 @@ const PATCH_NOTES = [
       ['fix','카지노 결과가 베팅하는 순간 확정되어 바로 저장됩니다'],
       ['fix','릴이 도는 도중에 나가거나 새로고침해도 베팅액이 사라지지 않습니다. 못 받은 당첨금은 다시 들어올 때 지급됩니다'],
       ['chg','한 번에 한 판만 돌릴 수 있습니다. 슬롯이 도는 동안에는 홀짝을 걸 수 없습니다'],
+      ['new','🔥 저녁 버닝 이벤트 — 매일 19시~22시, 모든 종목의 변동성이 30% 올라갑니다'],
+      ['new','🌅 굿모닝 이벤트 — 매일 7시~13시, 변동성이 20% 올라갑니다. 이 시간대에 처음 접속하면 1만원을 드립니다 (계정당 1회)'],
+      ['new','🎁 오늘 하루 이벤트 — 9월 21일 밤 9시~10시에 접속하면 5만원을 드립니다 (계정당 1회)'],
+      ['chg','기본 변동성을 50% 올렸습니다. 차트가 전보다 훨씬 크게 움직입니다'],
       ['del','정산 오류로 부풀려진 기록을 정리하기 위해 모든 랭킹을 초기화했습니다'],
     ]},
   { v:'1.8', date:'2026-09-21', title:'유저 시스템',
@@ -2192,10 +2197,61 @@ function marketTick(){ return Math.max(0, Math.floor((Date.now() - MKT_EPOCH)/10
 function sessionOf(t){ return Math.floor(t / SESSION_TICKS); }
 function sessionStartMs(sess){ return MKT_EPOCH + sess*SESSION_TICKS*1000; }
 
+/* ==================== 시간대 이벤트 ====================
+   시세는 모든 접속자에게 같아야 하므로, 이벤트 판정은 기기의 시간대가 아니라
+   한국 시간(UTC+9)으로 고정합니다. '지금'이 아니라 그 틱의 실제 시각으로 판정하기 때문에
+   늦게 들어와 장을 따라잡아도 같은 구간에는 같은 이벤트가 걸립니다.       */
+const KST = 9*3600*1000;
+const EVENTS = [
+  { key:'burning', from:19, to:22, boost:1.30, nm:'🔥 저녁 버닝', desc:'19시~22시 · 변동성 30% 상승' },
+  { key:'morning', from:7,  to:13, boost:1.20, nm:'🌅 굿모닝',    desc:'7시~13시 · 변동성 20% 상승 + 최초 접속 보너스 1만원' },
+];
+function kstHour(ms){ return Math.floor((ms + KST)/3600000) % 24; }
+function eventAt(ms){
+  const h = kstHour(ms);
+  return EVENTS.find(e=>h>=e.from && h<e.to) || null;
+}
+function volBoostAt(ms){ const e = eventAt(ms); return e ? e.boost : 1; }
+
+/* 오늘 하루만 여는 이벤트 — 2026-09-21 21:00~22:00 (KST). 계정당 한 번 5만원.
+   기간이 지나면 이 블록과 아래 claimLaunchBonus 호출부를 지우면 됩니다. */
+const LAUNCH_FROM = Date.UTC(2026, 8, 21, 12, 0, 0);   // 21:00 KST
+const LAUNCH_TO   = Date.UTC(2026, 8, 21, 13, 0, 0);   // 22:00 KST
+const LAUNCH_KEY  = 'MONEYROAD_LAUNCH_20260921';
+function launchActive(){ const n = Date.now(); return n >= LAUNCH_FROM && n < LAUNCH_TO; }
+function claimLaunchBonus(){
+  if(!G || !AUTH || !launchActive()) return;
+  const k = LAUNCH_KEY + ':' + playerKey();
+  if(lsGet(k)) return;
+  lsSet(k, String(Date.now()));
+  G.cash += 50000;
+  bankLog('🎁 오늘 하루 이벤트 50,000원 지급');
+  saveGame(true); renderAll();
+  toast('🎁 오늘 하루 이벤트! 50,000원을 받았습니다');
+}
+
+/* 굿모닝 접속 보너스 — 계정당 평생 딱 한 번. 매일 받는 것이 아닙니다. */
+const MORNING_KEY = 'MONEYROAD_MORNING';
+function claimMorningBonus(){
+  if(!G || !AUTH) return;
+  const e = eventAt(Date.now());
+  if(!e || e.key !== 'morning') return;
+  const k = MORNING_KEY + ':' + playerKey();
+  if(lsGet(k)) return;
+  lsSet(k, String(Date.now()));
+  G.cash += 10000;
+  bankLog('🌅 굿모닝 이벤트 접속 보너스 10,000원 (최초 1회)');
+  saveGame(true); renderAll();
+  toast('🌅 굿모닝 이벤트! 접속 보너스 10,000원을 받았습니다 (최초 1회)');
+}
+
+/* 기본 변동성 배율 — 차트를 더 크게 흔들고 싶으면 이 값만 올리면 됩니다.
+   베타(시장 공통 요인 민감도)는 원래 표 값으로 계산해, 변동성과 이중으로 곱해지지 않게 합니다. */
+const VOL_SCALE = 1.5;
 function freshMarket(session){
   return {
     session, t: 0, fx: 1380, mkt: 0, news: [],
-    stocks: STOCK_DEF.map(d=>({...d, base:d.price, prev:d.price, mom:0, fair:d.price, vs:1,
+    stocks: STOCK_DEF.map(d=>({...d, vol:d.vol*VOL_SCALE, base:d.price, prev:d.price, mom:0, fair:d.price, vs:1,
       beta:Math.max(0.55, Math.min(1.8, d.vol/0.030)), warn:0, warned:false, dead:false, hist:[d.price]}))
   };
 }
@@ -2211,15 +2267,19 @@ function stepMarket(M, collectNews){
   let crashed = false;
   if(r() < 0.0012){ M.mkt -= 0.05 + r()*0.08; crashed = true; }
 
+  // 이 틱의 실제 시각으로 이벤트를 판정한다 — 누가 언제 계산해도 같은 값이 나와야 한다
+  const vb = volBoostAt(sessionStartMs(M.session) + t*1000);
+
   for(const s of M.stocks){
     if(s.dead) continue;
     s.mom *= 0.90;
     s.fair *= (1 + s.drift);
-    const z = g(), shock = z*s.vol*s.vs;
+    const vol = s.vol*vb;
+    const z = g(), shock = z*vol*s.vs;
     s.vs = 0.97*s.vs + 0.03*(0.55 + 0.55*Math.min(3, Math.abs(z)));
     const gap = (s.fair - s.price)/s.price;
     const rev = Math.max(-0.02, Math.min(0.02, gap*0.006));
-    const chg = rev + s.mom + s.beta*M.mkt + shock - (s.vol*s.vol)/2;
+    const chg = rev + s.mom + s.beta*M.mkt + shock - (vol*vol)/2;
     s.price = Math.max(s.base*0.001, s.price*(1+chg));
     if(collectNews){ s.hist.push(s.price); if(s.hist.length>240) s.hist.shift(); }
 
@@ -2302,7 +2362,10 @@ function sessionClock(){
   const now = marketTick();
   const left = SESSION_TICKS - (now % SESSION_TICKS);
   const h = Math.floor(left/3600), m = Math.floor(left%3600/60), sec = left%60;
-  return `${sessionOf(now)+1}장 · 마감까지 ${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  const e = eventAt(Date.now());
+  return `${sessionOf(now)+1}장 · 마감까지 ${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+       + (e ? ` · ${e.nm}` : '')
+       + (launchActive() ? ' · 🎁 오늘 하루 5만원' : '');
 }
 
 /* ==================== 시뮬레이션 ==================== */
@@ -2333,6 +2396,7 @@ function tick(){
     MARKET.stocks.forEach(s=>{ if(!s.dead) s.prev = s.price; });
     chargeInterest();
   }
+  claimMorningBonus(); claimLaunchBonus();   // 플레이 도중에 이벤트 시간대로 넘어가도 받을 수 있게
   checkMargin();
 
   const nw = netWorthOf(G);

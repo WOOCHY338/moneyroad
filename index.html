@@ -523,33 +523,33 @@ const TICKS_PER_DAY = 20;
 
 /* vol = 1틱당 표준편차. 값이 클수록 차트가 심하게 요동칩니다. */
 const STOCK_DEF = [
-  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.016, drift:0.00035},
-  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.036, drift:0.00050},
-  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.031, drift:0.00020},
-  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.024, drift:0.00030},
-  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.029, drift:0.00055},
-  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.021, drift:0.00028},
-  {id:'NXC', name:'넥슨',         mkt:'KR', sec:'게임',     ico:'🕹️', price:2450,  vol:0.044, drift:0.00048},
-  {id:'NSM', name:'농심',         mkt:'KR', sec:'식품',     ico:'🍜', price:4300,  vol:0.019, drift:0.00026},
-  {id:'LGES',name:'LG에너지솔루션',mkt:'KR', sec:'2차전지', ico:'🔋', price:9600,  vol:0.028, drift:0.00044},
-  {id:'CELL',name:'셀트리온',     mkt:'KR', sec:'바이오',   ico:'💊', price:5900,  vol:0.030, drift:0.00038},
-  {id:'HYBE',name:'하이브',       mkt:'KR', sec:'엔터',     ico:'🎤', price:3700,  vol:0.038, drift:0.00041},
-  {id:'KRFT',name:'크래프톤',     mkt:'KR', sec:'게임',     ico:'🪂', price:6800,  vol:0.035, drift:0.00046},
-  {id:'KAL', name:'대한항공',     mkt:'KR', sec:'항공',     ico:'✈️', price:1950,  vol:0.024, drift:0.00022},
-  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.039, drift:0.00065},
-  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.019, drift:0.00032},
-  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.012, drift:0.00025},
-  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.017, drift:0.00035},
-  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.049, drift:0.00040},
-  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.024, drift:0.00033},
-  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.052, drift:0.00045},
-  {id:'NTDO',name:'닌텐도',       mkt:'US', sec:'게임',     ico:'🎴', price:9.80,  vol:0.033, drift:0.00042},
-  {id:'SONY',name:'소니',         mkt:'US', sec:'전자',     ico:'🎧', price:13.40, vol:0.026, drift:0.00034},
-  {id:'GOOG',name:'구글',         mkt:'US', sec:'빅테크',   ico:'🔍', price:26.40, vol:0.018, drift:0.00036},
-  {id:'META',name:'메타',         mkt:'US', sec:'빅테크',   ico:'👓', price:31.50, vol:0.025, drift:0.00038},
-  {id:'NFLX',name:'넷플릭스',     mkt:'US', sec:'미디어',   ico:'🎬', price:22.80, vol:0.027, drift:0.00035},
-  {id:'DIS', name:'디즈니',       mkt:'US', sec:'미디어',   ico:'🏰', price:7.90,  vol:0.021, drift:0.00024},
-  {id:'KO',  name:'코카콜라',     mkt:'US', sec:'식품',     ico:'🥤', price:5.60,  vol:0.009, drift:0.00021},
+  {id:'SEC', name:'삼성전자',     mkt:'KR', sec:'반도체',   ico:'📱', price:7480,  vol:0.0192, drift:0.00035},
+  {id:'SYS', name:'삼양식품',     mkt:'KR', sec:'식품',     ico:'🔥', price:3150,  vol:0.0432, drift:0.00050},
+  {id:'KKO', name:'카카오',       mkt:'KR', sec:'플랫폼',   ico:'💛', price:2980,  vol:0.0372, drift:0.00020},
+  {id:'NVR', name:'네이버',       mkt:'KR', sec:'플랫폼',   ico:'🟢', price:8900,  vol:0.0288, drift:0.00030},
+  {id:'HYX', name:'SK하이닉스',   mkt:'KR', sec:'반도체',   ico:'💾', price:11200, vol:0.0348, drift:0.00055},
+  {id:'HMC', name:'현대차',       mkt:'KR', sec:'자동차',   ico:'🚗', price:5600,  vol:0.0252, drift:0.00028},
+  {id:'NXC', name:'넥슨',         mkt:'KR', sec:'게임',     ico:'🕹️', price:2450,  vol:0.0528, drift:0.00048},
+  {id:'NSM', name:'농심',         mkt:'KR', sec:'식품',     ico:'🍜', price:4300,  vol:0.0228, drift:0.00026},
+  {id:'LGES',name:'LG에너지솔루션',mkt:'KR', sec:'2차전지', ico:'🔋', price:9600,  vol:0.0336, drift:0.00044},
+  {id:'CELL',name:'셀트리온',     mkt:'KR', sec:'바이오',   ico:'💊', price:5900,  vol:0.0360, drift:0.00038},
+  {id:'HYBE',name:'하이브',       mkt:'KR', sec:'엔터',     ico:'🎤', price:3700,  vol:0.0456, drift:0.00041},
+  {id:'KRFT',name:'크래프톤',     mkt:'KR', sec:'게임',     ico:'🪂', price:6800,  vol:0.0420, drift:0.00046},
+  {id:'KAL', name:'대한항공',     mkt:'KR', sec:'항공',     ico:'✈️', price:1950,  vol:0.0288, drift:0.00022},
+  {id:'NVDA',name:'엔비디아',     mkt:'US', sec:'반도체',   ico:'🟩', price:17.40, vol:0.0468, drift:0.00065},
+  {id:'AAPL',name:'애플',         mkt:'US', sec:'빅테크',   ico:'🍎', price:21.60, vol:0.0228, drift:0.00032},
+  {id:'WMT', name:'월마트',       mkt:'US', sec:'유통',     ico:'🛒', price:8.90,  vol:0.0144, drift:0.00025},
+  {id:'MSFT',name:'마이크로소프트',mkt:'US', sec:'빅테크',   ico:'🪟', price:38.20, vol:0.0204, drift:0.00035},
+  {id:'TSLA',name:'테슬라',       mkt:'US', sec:'자동차',   ico:'⚡', price:24.50, vol:0.0588, drift:0.00040},
+  {id:'AMZN',name:'아마존',       mkt:'US', sec:'유통',     ico:'📦', price:15.30, vol:0.0288, drift:0.00033},
+  {id:'RIOT',name:'라이엇게임즈', mkt:'US', sec:'게임',     ico:'🎮', price:6.40,  vol:0.0624, drift:0.00045},
+  {id:'NTDO',name:'닌텐도',       mkt:'US', sec:'게임',     ico:'🎴', price:9.80,  vol:0.0396, drift:0.00042},
+  {id:'SONY',name:'소니',         mkt:'US', sec:'전자',     ico:'🎧', price:13.40, vol:0.0312, drift:0.00034},
+  {id:'GOOG',name:'구글',         mkt:'US', sec:'빅테크',   ico:'🔍', price:26.40, vol:0.0216, drift:0.00036},
+  {id:'META',name:'메타',         mkt:'US', sec:'빅테크',   ico:'👓', price:31.50, vol:0.0300, drift:0.00038},
+  {id:'NFLX',name:'넷플릭스',     mkt:'US', sec:'미디어',   ico:'🎬', price:22.80, vol:0.0324, drift:0.00035},
+  {id:'DIS', name:'디즈니',       mkt:'US', sec:'미디어',   ico:'🏰', price:7.90,  vol:0.0252, drift:0.00024},
+  {id:'KO',  name:'코카콜라',     mkt:'US', sec:'식품',     ico:'🥤', price:5.60,  vol:0.0108, drift:0.00021},
 ];
 
 /* ==================== AI 속보 생성기 ==================== */
@@ -1476,7 +1476,14 @@ function startGame(slot){
   if(!Array.isArray(G.bank)) G.bank=[];
   const known = new Set(G.stocks.map(s=>s.id));
   STOCK_DEF.forEach(d=>{ if(!known.has(d.id)) G.stocks.push({...d,base:d.price,prev:d.price,mom:0,hist:[d.price]}); });
-  G.stocks.forEach(s=>{ if(!s.hist||!s.hist.length) s.hist=[s.price]; s.mom=s.mom||0; });
+  // 종목 설정(변동성·이름·섹터 등)은 최신 정의를 따르게 한다. 시세와 보유 내역은 그대로 둔다.
+  const defById = Object.fromEntries(STOCK_DEF.map(d=>[d.id,d]));
+  G.stocks.forEach(s=>{
+    const d = defById[s.id];
+    if(d){ s.vol=d.vol; s.drift=d.drift; s.name=d.name; s.sec=d.sec; s.ico=d.ico; s.mkt=d.mkt; s.base=s.base||d.price; }
+    if(!s.hist||!s.hist.length) s.hist=[s.price];
+    s.mom=s.mom||0;
+  });
 
   resetCasino(); overShown=false;
   showScreen('game');

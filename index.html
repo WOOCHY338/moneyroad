@@ -1175,13 +1175,20 @@ function bootAuth(){
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
       if(a.mode !== 'user' || loadUsers()[a.id] || SRV_TOKEN){
-        AUTH = a; loadUserSlots(); renderProfile(); startPresence(); renderSlots();
+        AUTH = a; loadUserSlots(); loadAcct(); renderProfile(); startPresence(); renderSlots();
         if(a.mode === 'user' && SRV_TOKEN){
           setTimeout(async ()=>{                      // 서버 기록이 더 최신이면 그것으로 맞춘다
             if(!srvUp()) return;
             try{
               const r = await rpc('app_load_slots', {p_user:a.name, p_token:SRV_TOKEN});
               if(r && r.ok){ srvMode = true; if(applyServerSlots(r.slots)) renderSlots(); renderProfile(); }
+              const mt = await rpc('app_load_meta', {p_user:a.name, p_token:SRV_TOKEN});
+              if(mt && mt.ok && mt.meta && typeof mt.meta === 'object'){
+                const srvUn = mt.meta.unlocked || {};
+                ACCT.unlocked = Object.assign({}, srvUn, ACCT.unlocked);   // 둘 중 열린 것은 모두 열어둔다
+                lsSet(ACCT_KEY(), JSON.stringify(ACCT));
+                renderNavLocks();
+              }
             }catch(e){}
           }, 1200);
         }
@@ -3254,6 +3261,7 @@ const UNLOCKS = {
 const ACCT_KEY = ()=> 'MONEYROAD_ACCT:' + (AUTH ? (AUTH.mode==='user' ? 'u_'+AUTH.id : 'guest') : 'guest');
 let ACCT = {unlocked:{}};
 function loadAcct(){
+  if(!AUTH) return ACCT;                      // 계정이 정해지기 전에는 읽지 않는다
   try{ const o = JSON.parse(lsGet(ACCT_KEY())); if(o && typeof o==='object'){ ACCT = o; } else ACCT = {unlocked:{}}; }
   catch(e){ ACCT = {unlocked:{}}; }
   if(!ACCT.unlocked || typeof ACCT.unlocked!=='object') ACCT.unlocked = {};

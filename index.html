@@ -3597,6 +3597,18 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.1', date:'2026-09-23', title:'실제 주식처럼 — 변동폭 정상화',
+    items:[
+      ['chg','한 장(30분)을 실제 주식 1년치로 맞췄습니다. 하루아침에 재산이 열 배가 되거나 0이 되는 일은 이제 없습니다'],
+      ['chg','장 마감 기준 중앙값 +6%, 열에 여덟은 −24%~+48% 안에서 끝납니다. 열에 여섯은 오릅니다'],
+      ['chg','반토막 나는 종목이 10.5%에서 1.8%로, 2배 이상 오르는 종목이 14.4%에서 3.9%로 줄었습니다'],
+      ['fix','진짜 원인은 시장 공통 변동이었습니다. 이 값 하나가 장 전체로 누적 ±187%를 만들고 있어서, 개별 변동성만 7배 줄여도 그래프가 그대로였습니다'],
+      ['chg','속보가 주가에 남기는 영향도 절반으로 줄였습니다. 호재·악재는 여전히 통하지만 한 건에 주가가 두 배가 되진 않습니다'],
+      ['chg','적정가로 끌어당기는 힘을 약하게 해서, 실제 주식처럼 한번 난 추세가 한동안 이어집니다'],
+      ['new','종목마다 기대수익률이 다릅니다. 엔비디아처럼 성장주는 장기적으로 더 오르고, 코카콜라 같은 종목은 잔잔합니다'],
+      ['chg','상장폐지 문턱을 시작가의 40%로 올렸습니다. 변동이 줄어 예전 기준으로는 영영 일어나지 않게 되었기 때문입니다'],
+      ['del','이제 주식만으로 크게 불리기는 어렵습니다. 큰돈은 부동산·광산·회사에서 버시는 게 맞습니다'],
+    ]},
   { v:'3.0', date:'2026-09-23', title:'시세 엔진 수정 — 늘 하락장이던 문제',
     items:[
       ['fix','아무 종목이나 사도 손해였던 문제를 고쳤습니다. 장이 끝날 때 오르는 종목이 30.8%뿐이었는데, 이제 49.7%입니다'],
@@ -3902,15 +3914,20 @@ function claimMorningBonus(){
 
 /* 기본 변동성 배율 — 차트를 더 크게 흔들고 싶으면 이 값만 올리면 됩니다.
    베타(시장 공통 요인 민감도)는 원래 표 값으로 계산해, 변동성과 이중으로 곱해지지 않게 합니다. */
-const VOL_SCALE = 1.5;
+const VOL_SCALE = 0.24;      // ① 개별 종목 — 한 장에 표준편차 24% 선
+const MKT_NOISE  = 0.0009;   // ② 시장 공통 — 누적 15% 선. 예전 값(0.0088)은 누적 187% 였습니다
+const NEWS_IMPACT = 0.065;    // ③ 속보 한 건이 주가에 남기는 누적 영향 (pct 의 절반)
+const CRASH_P    = 0.00008;  // 전체 폭락 — 대략 일곱 장에 한 번
+const REVERT     = 0.0008;   // 적정가로 끌어당기는 힘. 세면 다 같은 값에 붙어버립니다
+
 /* 곱셈으로 복리가 붙으면 중앙값이 vol²/2 만큼 저절로 깎입니다.
    그대로 두면 아무 종목이나 사도 손해라 늘 하락장이 됩니다.
    이 값으로 되돌려 주는데, 평균회귀와 fair 상승분이 이미 위로 밀어 주므로
    전부(1.0)가 아니라 일부만 돌려줘야 중앙값이 1.0 근처에 섭니다. */
-let DRIFT_FIX = 0.45;
+const DRIFT_FIX = 0.45;
 /* 상장폐지: 시작가의 이 비율 아래로 오래 머물면 관리종목 → 폐지.
    폐지되면 보유 주식은 전액 손실입니다. 경고 기간이 있으니 그 전에 팔아야 합니다. */
-const WARN_AT = 0.20, DELIST_AT = 0.10, WARN_TICKS = 30;
+const WARN_AT = 0.40, DELIST_AT = 0.25, WARN_TICKS = 60;
 function freshMarket(session){
   return {
     session, t: 0, fx: 1380, mkt: 0, news: [],
@@ -3927,9 +3944,9 @@ function stepMarket(M, collectNews){
     return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
 
   M.fx = Math.min(1900, Math.max(950, M.fx*(1+g()*0.0022)));
-  M.mkt = M.mkt*0.80 + g()*0.0088;
+  M.mkt = M.mkt*0.80 + g()*MKT_NOISE;
   let crashed = false;
-  if(r() < 0.0004){ M.mkt -= 0.03 + r()*0.04; crashed = true; }
+  if(r() < CRASH_P){ M.mkt -= 0.06 + r()*0.06; crashed = true; }
 
   // 이 틱의 실제 시각으로 이벤트를 판정한다 — 누가 언제 계산해도 같은 값이 나와야 한다
   const vb = volBoostAt(sessionStartMs(M.session) + t*1000);
@@ -3953,8 +3970,8 @@ function stepMarket(M, collectNews){
     const z = g(), shock = z*vol*s.vs;
     s.vs = 0.97*s.vs + 0.03*(0.55 + 0.55*Math.min(3, Math.abs(z)));
     const gap = (s.fair - s.price)/s.price;
-    const rev = Math.max(-0.02, Math.min(0.02, gap*0.006));
-    const chg = rev + s.mom + s.beta*M.mkt + shock + DRIFT_FIX*(vol*vol*s.vs*s.vs)/2;
+    const rev = Math.max(-0.02, Math.min(0.02, gap*REVERT));
+    const chg = rev + s.drift + s.mom + s.beta*M.mkt + shock + DRIFT_FIX*(vol*vol*s.vs*s.vs)/2;
     s.price = Math.max(s.base*0.001, s.price*(1+chg));
     if(collectNews){ s.hist.push(s.price); if(s.hist.length>240) s.hist.shift(); }
 
@@ -3994,7 +4011,7 @@ function stepMarket(M, collectNews){
     const prevRND = RND; RND = nr;
     const n = generateNews(M.stocks);
     RND = prevRND;
-    const imp = (n.pct/100)*0.10;
+    const imp = (n.pct/100)*NEWS_IMPACT;
     n.targets.forEach(id=>{
       const st = M.stocks.find(x=>x.id===id);
       if(st && !st.dead) st.mom += imp*(n.targets.length>1 ? 0.9 : 1);

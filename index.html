@@ -94,6 +94,27 @@ input{font-family:inherit}
 .lown{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#0f2a1f;color:var(--mint)}
 .lsale{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#2a2312;color:var(--gold)}
 
+/* ===== 건물 경영 ===== */
+.mg{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:11px}
+.mg h4{font-size:15px;margin-bottom:3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mg .mgloc{font-size:11.5px;color:var(--sub);margin-bottom:10px}
+.mg .mgstat{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-bottom:10px}
+.mg .mgstat b{display:block;font-size:14px;margin-top:2px}
+.mg .mgacts{display:flex;gap:7px;flex-wrap:wrap}
+.mg .mgacts button{padding:9px 13px;border-radius:9px;font-size:12.5px;font-weight:800;min-height:38px;
+  background:#0d1524;border:1px solid var(--line)}
+.mg .mgacts button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.mg .mgacts button:disabled{opacity:.4;cursor:not-allowed}
+.mg .mgacts .go{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border:none}
+.bar{height:8px;background:#0a1320;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--mint),var(--gold))}
+.staff{display:flex;align-items:center;gap:8px;padding:7px 9px;border-bottom:1px solid #1a2438;font-size:12.5px}
+.staff:last-child{border-bottom:none}
+.staff .nm{flex:1;font-weight:700}
+.staff .wg{color:var(--gold);font-weight:800}
+.staff button{padding:5px 9px;border-radius:7px;font-size:11px;background:#2a1220;border:1px solid #57263a;color:#ff8a9c}
+.warn-red{color:#ff8a9c}
+
 /* ===== 부동산 미니맵 ===== */
 .mapwrap{background:#0a1020;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:14px}
 #landMap svg{display:block;width:100%;height:auto;max-height:460px;margin:0 auto}
@@ -631,6 +652,14 @@ tr:last-child td{border-bottom:none}
         </div>
         <div class="mapwrap"><div id="landMap"></div></div>
         <div id="landList"></div>
+      </div>
+      <div class="panel" id="mgmtPanel" hidden>
+        <h3>🏗️ 내 건물 경영 <small id="mgmtSum"></small></h3>
+        <div id="mgmtList"></div>
+      </div>
+      <div class="panel" id="jobPanel" hidden>
+        <h3>💼 일자리 <small>받은 제안과 내 근무</small></h3>
+        <div id="jobList"></div>
       </div>
     </div>
 
@@ -1170,7 +1199,7 @@ function bootAuth(){
   maybeShowPatch();
   ensureMarket();
   setInterval(()=>{ if(!G){ ensureMarket(); } const c=$('mktClock'); if(c) c.textContent=sessionClock(); }, 1000);
-  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); loadAdminRemote(); loadCommRemote();
+  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); startCollect(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1795,7 +1824,7 @@ function renderLandMap(){
 function bldTag(l){
   if(!l.bld_type || !(l.bld_level > 0)) return ' · <span style="color:#6b7c9e">빈 땅</span>';
   const b = BLD[l.bld_type];
-  return ' · <span style="color:var(--mint);font-weight:700">' + b.nm + ' Lv' + l.bld_level +
+  return ' · <span style="color:var(--mint);font-weight:700">' + (l.bld_name ? esc(l.bld_name) + ' ' : '') + b.nm + ' Lv' + l.bld_level +
          (l.bld_type==='corp' && l.bld_sector ? '(' + esc(l.bld_sector) + ')' : '') + '</span>';
 }
 function bindUserRows(root){
@@ -1990,17 +2019,45 @@ $('waIn').onkeydown = e=>{ if(e.key==='Enter') sendWhisper(); };
 const RENT_PER_SESSION = 0.010;      // 빈 땅은 장(30분)마다 기준가의 1% — 건물을 지어야 제값을 한다
 
 /* ── 건물 ───────────────────────────────────────────────
-   건축비와 수익은 모두 '땅값'에 비례합니다. 비싼 땅일수록 크게 벌고 크게 듭니다.
-   레벨은 1~5, 올릴수록 수익이 1 → 1.4 → 1.9 → 2.5 → 3.2배가 됩니다.      */
+   난이도가 셋으로 나뉩니다.
+     🏬 아파트 — 손 안 대도 3분마다 자동 입금
+     🏪 가게   — 재고를 발주해야 팔립니다. 재고가 없으면 매출도 없습니다
+     🏢 회사   — 직원을 뽑고 신제품을 개발해야 합니다. 인건비 때문에 적자도 납니다
+   모든 값은 땅값에 비례합니다. 정산 주기는 3분입니다.                      */
+const TICK_MS_BLD = 180000;                  // 3분
+const MAX_CATCHUP = 20;                      // 자리를 비워도 최대 1시간치까지만 정산
 const BLD = {
-  apt:  { nm:'🏬 아파트', cost:0.60, yield:0.040, desc:'매 장 같은 임대수익이 들어옵니다. 변동이 없어 안전합니다.' },
-  shop: { nm:'🏪 가게',   cost:0.35, yield:0.030, desc:'시간대 이벤트에 매출이 오르내립니다. 적게 투자해 중간 수익.' },
-  corp: { nm:'🏢 회사',   cost:1.00, yield:0.055, desc:'업종을 고르면 그 섹터 뉴스에 실적이 연동됩니다. 적자도 납니다.' },
+  apt:  { nm:'🏬 아파트', cost:0.60, yield:0.0040, desc:'손 안 대도 3분마다 임대료가 들어옵니다. 가장 쉽습니다.' },
+  shop: { nm:'🏪 가게',   cost:0.35, yield:0.0030, desc:'재고를 발주해야 팔립니다. 재고가 떨어지면 매출이 멈춥니다.' },
+  corp: { nm:'🏢 회사',   cost:1.00, yield:0.0055, desc:'직원을 뽑고 신제품을 개발합니다. 인건비가 커지면 적자가 납니다.' },
 };
-const LV_MULT = [0, 1, 1.4, 1.9, 2.5, 3.2];        // 레벨별 수익 배수
+const LV_MULT = [0, 1, 1.4, 1.9, 2.5, 3.2];
 function bldCost(l, type){ return Math.round(Number(l.base_price) * BLD[type].cost); }
 function upCost(l){ return Math.round(bldCost(l, l.bld_type) * 0.8 * (l.bld_level || 1)); }
 function bldSectors(){ return [...new Set(STOCK_DEF.map(d=>d.sec))]; }
+function bldTitle(l){ return l.bld_name || (BLD[l.bld_type] ? BLD[l.bld_type].nm : ''); }
+
+/* 가게 */
+function unitCostOf(l){ return Math.max(1, Math.round(Number(l.base_price) * 0.00002)); }   // 개당 발주가
+function unitPriceOf(l){ return Math.round(unitCostOf(l) * 2.4); }                          // 개당 판매가
+function demandOf(l){                                                                       // 3분당 수요
+  const ev = eventAt(Date.now());
+  return Math.max(1, Math.round(Number(l.base_price) * 0.0000036 * (LV_MULT[l.bld_level]||1) * (ev?ev.boost:1)));
+}
+/* 회사 */
+function npcWage(l){ return Math.round(Number(l.base_price) * 0.00040); }                    // 직원 1인당 3분 인건비
+function rndGoal(l){ return Math.round(Number(l.base_price) * 0.15 * (l.bld_plv||1)); }
+function myStaff(landId){ return JOBS.filter(j=>j.land_id===landId && j.status==='active' && j.role==='boss'); }
+function staffBonus(l){
+  const npc = (l.bld_emp||0) * 0.02;
+  const real = myStaff(l.id).length * 0.08;      // 실제 유저는 4배 생산적이다
+  return npc + real;
+}
+function wageBill(l){
+  const npc = (l.bld_emp||0) * npcWage(l);
+  const real = myStaff(l.id).reduce((a,j)=>a + Number(j.wage||0), 0);
+  return npc + real;
+}
 
 /* 섹터의 최근 기세 — 회사 실적에 쓰입니다. 시세가 공유되므로 모두 같은 값이 나옵니다. */
 function sectorMomentum(sec){
@@ -2013,27 +2070,27 @@ function sectorMomentum(sec){
   }, 0) / list.length;
   return Math.max(-0.6, Math.min(0.6, m));
 }
-/* 이 장에서 이 건물이 낼 수익. 같은 장·같은 건물이면 누가 계산해도 같다. */
-function bldIncome(l, session){
-  if(!l.bld_type || !(l.bld_level > 0)) return Math.round(Number(l.base_price) * RENT_PER_SESSION);
+/* 이 건물의 3분당 순수익. 회사는 인건비를 빼서 적자가 날 수 있습니다. */
+function bldIncome(l){
+  if(!l.bld_type || !(l.bld_level > 0)) return Math.round(Number(l.base_price) * RENT_PER_SESSION / 10);
   const b = BLD[l.bld_type];
   const base = Number(l.base_price) * b.yield * (LV_MULT[l.bld_level] || 1);
   if(l.bld_type === 'apt') return Math.round(base);
   if(l.bld_type === 'shop'){
-    const ev = eventAt(sessionStartMs(session));     // 그 장의 시간대
-    const boost = ev ? ev.boost : 1;
-    const r = mulberry32(((session * 0x45D9F3B) ^ (l.id.charCodeAt(1) * 2654435761)) >>> 0)();
-    return Math.round(base * boost * (0.6 + r * 0.8));   // ±40%
+    const sold = Math.min(l.bld_stock || 0, demandOf(l));
+    return Math.round(sold * (unitPriceOf(l) - unitCostOf(l)));
   }
-  // 회사 — 섹터 기세에 연동, 적자도 난다
   const mom = sectorMomentum(l.bld_sector || '반도체');
-  return Math.round(base * (0.55 + mom * 1.6));
+  const plvMult = 1 + ((l.bld_plv||1) - 1) * 0.25;
+  // 업종이 아무리 나빠도 매출이 음수가 되지는 않는다. 적자는 인건비에서 나온다.
+  const rev = base * plvMult * (1 + staffBonus(l)) * Math.max(0.15, 0.55 + mom * 1.6);
+  return Math.round(rev - wageBill(l));
 }
-
-let LANDS = [], landTimer = null;
+/* 이번 정산에서 팔릴 재고 수 */
+function soldOf(l){ return Math.min(l.bld_stock || 0, demandOf(l)); }
 
 function myLands(){ const me = myLc(); return me ? LANDS.filter(l=>l.owner_lc === me) : []; }
-function landRent(){ const ss = MARKET ? MARKET.session : 0; return myLands().reduce((a,l)=>a + bldIncome(l, ss), 0); }
+function landRent(){ return myLands().reduce((a,l)=>a + bldIncome(l), 0); }
 
 async function loadLands(){
   if(!commOnline()){ LANDS = []; return; }
@@ -2064,7 +2121,7 @@ function landRow(l){
     '<div class="lt t' + l.tier + '">🏞️</div>' +
     '<div class="li"><div class="ln">' + esc(l.name) + ' ' + badge + '</div>' +
     '<div class="ls">' + esc(l.region) + ' · 기준가 ' + fmtW(l.base_price) + bldTag(l) +
-    ' · 수익 ' + fmtW(bldIncome(l, MARKET?MARKET.session:0)) + '/장</div></div>' +
+    ' · 수익 ' + fmtW(bldIncome(l)) + '/3분</div></div>' +
     '<div class="lp"><b>' + (l.for_sale ? fmtW(l.price) : '—') + '</b><span>' + (l.for_sale?'호가':'비매물') + '</span></div>' +
     '<div class="lacts">' + acts + '</div></div>';
 }
@@ -2079,6 +2136,7 @@ async function renderLand(){
   await loadLands();
   el.innerHTML = LANDS.length ? LANDS.map(landRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
   renderLandMap();
+  renderMgmt(); renderJobs();
   el.querySelectorAll('[data-land]').forEach(b=>{
     b.onclick = ()=>{
       const l = LANDS.find(x=>x.id===b.dataset.land); if(!l) return;
@@ -2099,7 +2157,7 @@ function buyLand(l){
   openModal('<h2>🏞️ ' + esc(l.name) + '</h2>' +
     '<div class="kv"><span>지역</span><b>' + esc(l.region) + '</b></div>' +
     '<div class="kv"><span>호가</span><b style="color:var(--gold)">' + fmtW(price) + '</b></div>' +
-    '<div class="kv"><span>현재 수익</span><b>' + fmtW(bldIncome(l, MARKET?MARKET.session:0)) + ' / 장(30분)</b></div>' +
+    '<div class="kv"><span>현재 수익</span><b>' + fmtW(bldIncome(l)) + ' / 3분</b></div>' +
     '<div class="kv"><span>내 현금</span><b>' + fmtW(G.cash) + '</b></div>' +
     (l.owner_name ? '<div class="kv"><span>현재 주인</span><b>' + esc(l.owner_name) + '</b></div>' : '') +
     '<button class="big-btn" id="lbGo" style="margin-top:14px"' + (G.cash < price ? ' disabled' : '') + '>' +
@@ -2160,21 +2218,27 @@ function openBuild(l){
   openModal('<h2>🔨 ' + esc(l.name) + '에 건물 짓기</h2>' +
     '<div class="kv"><span>내 현금</span><b style="color:var(--gold)">' + fmtW(G.cash) + '</b></div>' +
     '<div class="bldpick">' + cards + '</div>' +
-    '<div id="secPick" hidden><p style="color:var(--sub);font-size:12.5px;margin:10px 0 6px">회사 업종을 고르세요. 그 섹터 뉴스에 실적이 연동됩니다.</p>' +
-    '<select class="auth-in" id="bldSec" aria-label="회사 업종">' + secs.map(x=>'<option>' + esc(x) + '</option>').join('') + '</select>' +
-    '<button class="big-btn" id="bldGo">이 업종으로 설립</button></div>' +
+    '<div id="secPick" hidden>' +
+    '<input class="auth-in" id="bldNm" maxlength="16" placeholder="건물 이름 (선택)" aria-label="건물 이름">' +
+    '<div id="secRow" hidden><p style="color:var(--sub);font-size:12.5px;margin:4px 0 6px">업종을 고르세요. 그 섹터 뉴스에 실적이 연동됩니다.</p>' +
+    '<select class="auth-in" id="bldSec" aria-label="회사 업종">' + secs.map(x=>'<option>' + esc(x) + '</option>').join('') + '</select></div>' +
+    '<button class="big-btn" id="bldGo">짓기</button></div>' +
     '<button class="ghost-btn" onclick="closeModal()">취소</button>');
   document.querySelectorAll('[data-bt]').forEach(btn=>btn.onclick=()=>{
     const t = btn.dataset.bt;
-    if(t === 'corp'){ $('secPick').hidden = false; $('bldGo').onclick = ()=>doBuild(l, 'corp', $('bldSec').value); }
-    else doBuild(l, t, null);
+    $('secPick').hidden = false;
+    $('secRow').hidden = (t !== 'corp');
+    $('bldGo').textContent = t === 'corp' ? '이 이름으로 회사 설립' : '이 이름으로 짓기';
+    $('bldNm').placeholder = t === 'corp' ? '회사 이름 (예: 머니로드전자)' : '건물 이름 (선택)';
+    $('bldGo').onclick = ()=>doBuild(l, t, t === 'corp' ? $('bldSec').value : null, ($('bldNm').value||'').trim());
   });
 }
-async function doBuild(l, type, sector){
+async function doBuild(l, type, sector, nm){
   const cost = bldCost(l, type);
   if(G.cash < cost) return toast('현금이 부족합니다');
+  if(type === 'corp' && !(nm||'').trim()) return toast('회사 이름을 정해주세요');
   try{
-    const r = await rpc('app_build', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_type:type, p_sector:sector});
+    const r = await rpc('app_build', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_type:type, p_sector:sector, p_name:nm||null});
     if(!r.ok) return toast(r.err || '짓지 못했습니다');
     G.cash -= cost; saveGame(true); renderAll();
     closeModal(); toast('🔨 ' + l.name + '에 ' + BLD[type].nm + '을(를) 지었습니다');
@@ -2219,11 +2283,284 @@ function razeBuild(l){
   };
 }
 
+/* ── 경영 패널 ─────────────────────────────────── */
+let JOBS = [], collectTimer = null;
+
+async function loadJobs(){
+  if(!usersReady()){ JOBS = []; return; }
+  try{ JOBS = await rpc('app_jobs', {p_user:AUTH.name, p_token:SRV_TOKEN}); }catch(e){ JOBS = []; }
+}
+function mgmtCard(l){
+  const b = BLD[l.bld_type];
+  const inc = bldIncome(l);
+  const rows = [];
+  rows.push('<span>3분 수익<b class="' + (inc<0?'warn-red':'up') + '">' + (inc<0?'-':'') + fmtW(Math.abs(inc)) + '</b></span>');
+  if(l.bld_type === 'shop'){
+    const d = demandOf(l), st = l.bld_stock||0;
+    rows.push('<span>재고<b class="' + (st<d?'warn-red':'') + '">' + st.toLocaleString() + '개</b></span>');
+    rows.push('<span>3분 수요<b>' + d.toLocaleString() + '개</b></span>');
+    rows.push('<span>개당 마진<b>' + fmtW(unitPriceOf(l)-unitCostOf(l)) + '</b></span>');
+  }
+  if(l.bld_type === 'corp'){
+    rows.push('<span>제품<b>Lv' + (l.bld_plv||1) + '</b></span>');
+    rows.push('<span>직원<b>NPC ' + (l.bld_emp||0) + ' · 유저 ' + myStaff(l.id).length + '</b></span>');
+    rows.push('<span>인건비<b class="warn-red">' + fmtW(wageBill(l)) + '</b></span>');
+    rows.push('<span>업종 기세<b>' + (sectorMomentum(l.bld_sector)*100).toFixed(1) + '%</b></span>');
+  }
+  let acts = '';
+  if(l.bld_type === 'shop'){
+    acts += '<button class="go" data-mg="order" data-id="' + esc(l.id) + '">📦 재고 발주</button>';
+  }
+  if(l.bld_type === 'corp'){
+    acts += '<button class="go" data-mg="rnd" data-id="' + esc(l.id) + '">🔬 신제품 개발</button>' +
+            '<button data-mg="hire" data-id="' + esc(l.id) + '">👔 직원 채용</button>';
+  }
+  if(l.bld_level < 5) acts += '<button data-mg="up" data-id="' + esc(l.id) + '">⬆ 증축</button>';
+  acts += '<button data-mg="rename" data-id="' + esc(l.id) + '">✏️ 이름</button>';
+
+  let rnd = '';
+  if(l.bld_type === 'corp'){
+    const goal = rndGoal(l), cur = Number(l.bld_rnd||0);
+    rnd = '<div style="font-size:11.5px;color:var(--sub);margin-top:8px">신제품 개발 ' +
+      Math.min(100, Math.round(cur/goal*100)) + '% · 목표 ' + fmtW(goal) + '</div>' +
+      '<div class="bar"><i style="width:' + Math.min(100, cur/goal*100) + '%"></i></div>';
+  }
+  const staff = (l.bld_type === 'corp' && myStaff(l.id).length)
+    ? '<div style="margin-top:9px">' + myStaff(l.id).map(j=>
+        '<div class="staff"><span class="nm">👤 ' + esc(j.worker_name) + '</span>' +
+        '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
+        '<button data-mg="fire" data-jid="' + j.id + '">해고</button></div>').join('') + '</div>'
+    : '';
+  return '<div class="mg"><h4>' + (l.bld_name ? esc(l.bld_name) : b.nm) + ' <span style="font-size:11px;color:var(--sub)">' +
+    b.nm + ' Lv' + l.bld_level + (l.bld_sector ? ' · ' + esc(l.bld_sector) : '') + '</span></h4>' +
+    '<div class="mgloc">' + esc(l.name) + ' · ' + esc(l.region) + '</div>' +
+    '<div class="mgstat">' + rows.join('') + '</div>' + rnd + staff +
+    '<div class="mgacts">' + acts + '</div></div>';
+}
+function renderMgmt(){
+  const panel = $('mgmtPanel'), el = $('mgmtList');
+  if(!panel || !el) return;
+  const mine = myLands().filter(l=>l.bld_level > 0);
+  panel.hidden = mine.length === 0;
+  if(!mine.length) return;
+  const total = mine.reduce((a,l)=>a + bldIncome(l), 0);
+  $('mgmtSum').textContent = mine.length + '동 · 합계 ' + fmtW(total) + '/3분';
+  el.innerHTML = mine.map(mgmtCard).join('');
+  el.querySelectorAll('[data-mg]').forEach(b=>{
+    const l = LANDS.find(x=>x.id===b.dataset.id);
+    b.onclick = ()=>{
+      const a = b.dataset.mg;
+      if(a==='order')  openOrder(l);
+      if(a==='rnd')    openRnd(l);
+      if(a==='hire')   openHire(l);
+      if(a==='up')     upgradeBuild(l);
+      if(a==='rename') openRename(l);
+      if(a==='fire')   endJob(Number(b.dataset.jid), '해고했습니다');
+    };
+  });
+}
+/* 일자리 패널 — 받은 제안과 내 근무처 */
+function renderJobs(){
+  const panel = $('jobPanel'), el = $('jobList');
+  if(!panel || !el) return;
+  const asWorker = JOBS.filter(j=>j.role==='worker');
+  panel.hidden = asWorker.length === 0;
+  if(!asWorker.length) return;
+  el.innerHTML = asWorker.map(j=>{
+    const pend = j.status === 'pending';
+    return '<div class="staff"><span class="nm">' + (pend?'📩 ':'💼 ') + esc(j.boss_name) + ' 님의 회사</span>' +
+      '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
+      (pend
+        ? '<button style="background:#0f2a1f;border-color:#1d4a38;color:var(--mint)" data-job="yes" data-jid="' + j.id + '">수락</button>' +
+          '<button data-job="no" data-jid="' + j.id + '">거절</button>'
+        : '<button data-job="quit" data-jid="' + j.id + '">퇴사</button>') + '</div>';
+  }).join('');
+  el.querySelectorAll('[data-job]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = Number(b.dataset.jid), a = b.dataset.job;
+      if(a==='quit') return endJob(id, '퇴사했습니다');
+      try{
+        const r = await rpc('app_job_respond', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:id, p_accept:a==='yes'});
+        if(!r.ok) return toast(r.err || '처리하지 못했습니다');
+        toast(a==='yes' ? ('💼 ' + r.boss + ' 님의 회사에 입사했습니다') : '제안을 거절했습니다');
+        await loadJobs(); renderJobs(); renderMgmt();
+      }catch(e){ toast('실패: ' + e.message); }
+    };
+  });
+}
+async function endJob(id, msg){
+  try{
+    const r = await rpc('app_job_end', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:id});
+    if(!r.ok) return toast(r.err || '처리하지 못했습니다');
+    toast(msg); await loadJobs(); renderJobs(); renderMgmt();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+/* 재고 발주 */
+function openOrder(l){
+  const uc = unitCostOf(l), d = demandOf(l), st = l.bld_stock||0;
+  const max = Math.min(999 - st, Math.floor(G.cash / uc));
+  openModal('<h2>📦 재고 발주</h2>' +
+    '<div class="kv"><span>현재 재고</span><b>' + st.toLocaleString() + '개</b></div>' +
+    '<div class="kv"><span>3분 수요</span><b>' + d.toLocaleString() + '개</b></div>' +
+    '<div class="kv"><span>개당 발주가</span><b>' + fmtW(uc) + '</b></div>' +
+    '<div class="kv"><span>개당 판매가</span><b style="color:var(--mint)">' + fmtW(unitPriceOf(l)) + '</b></div>' +
+    '<input class="auth-in" id="ordQ" type="number" min="1" max="' + Math.max(1,max) + '" value="' + Math.max(1, Math.min(max, d*10)) + '" style="margin-top:12px" aria-label="발주 수량">' +
+    '<div id="ordCost" style="font-size:12.5px;color:var(--sub);margin-bottom:10px"></div>' +
+    '<button class="big-btn" id="ordGo">발주하기</button>' +
+    '<div class="warnbox" style="margin-top:12px">재고가 떨어지면 매출이 0이 됩니다. 창고는 999개까지 찹니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  const upd = ()=>{
+    const q = Math.max(0, Math.floor(Number($('ordQ').value)||0));
+    $('ordCost').textContent = '총 ' + fmtW(q*uc) + ' · 발주 후 재고 ' + (st+q).toLocaleString() + '개';
+    $('ordGo').disabled = q < 1 || q > max;
+  };
+  $('ordQ').oninput = upd; upd();
+  $('ordGo').onclick = async ()=>{
+    const q = Math.floor(Number($('ordQ').value)||0);
+    if(q < 1 || q*uc > G.cash) return toast('수량이나 현금을 확인해주세요');
+    try{
+      const r = await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:{stock: st+q}});
+      if(!r.ok) return toast(r.err || '실패');
+      G.cash -= q*uc; saveGame(true); renderAll();
+      closeModal(); toast('📦 ' + q.toLocaleString() + '개를 들여왔습니다');
+      refreshLandAll();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+/* 신제품 개발 */
+function openRnd(l){
+  const goal = rndGoal(l), cur = Number(l.bld_rnd||0);
+  openModal('<h2>🔬 신제품 개발</h2>' +
+    '<div class="kv"><span>현재 제품</span><b>Lv' + (l.bld_plv||1) + ' (매출 ×' + (1+((l.bld_plv||1)-1)*0.25).toFixed(2) + ')</b></div>' +
+    '<div class="kv"><span>진행도</span><b>' + fmtW(cur) + ' / ' + fmtW(goal) + '</b></div>' +
+    '<div class="bar"><i style="width:' + Math.min(100, cur/goal*100) + '%"></i></div>' +
+    '<input class="auth-in" id="rndA" type="number" min="1000" step="1000" value="' + Math.max(1000, Math.min(Math.floor(G.cash), goal-cur)) + '" style="margin-top:12px" aria-label="투자 금액">' +
+    '<button class="big-btn" id="rndGo">연구에 투자</button>' +
+    '<div class="warnbox" style="margin-top:12px">진행도가 목표에 닿으면 <b>70% 확률</b>로 제품 레벨이 오릅니다.<br>실패하면 진행도의 절반이 날아갑니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  $('rndGo').onclick = async ()=>{
+    const amt = Math.floor(Number($('rndA').value)||0);
+    if(amt < 1000) return toast('1,000원 이상 투자해주세요');
+    if(amt > G.cash) return toast('현금이 부족합니다');
+    let nr = cur + amt, plv = l.bld_plv||1, msg = '🔬 연구에 ' + fmtW(amt) + '을 투자했습니다';
+    if(nr >= goal){
+      if(Math.random() < 0.7){ plv = Math.min(9, plv+1); nr = 0; msg = '🎉 신제품 개발 성공! 제품 Lv' + plv; }
+      else { nr = Math.floor(goal/2); msg = '💦 개발 실패… 진행도의 절반이 날아갔습니다'; }
+    }
+    try{
+      const r = await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:{rnd:nr, plv:plv}});
+      if(!r.ok) return toast(r.err || '실패');
+      G.cash -= amt; saveGame(true); renderAll();
+      closeModal(); toast(msg); refreshLandAll();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+/* 직원 채용 */
+function openHire(l){
+  const w = npcWage(l);
+  openModal('<h2>👔 직원 채용</h2>' +
+    '<p style="color:var(--sub);font-size:12.5px;line-height:1.8;margin:8px 0 12px">' +
+    'NPC 직원은 바로 뽑히지만 생산성이 낮습니다(1인 +2%).<br>' +
+    '<b style="color:var(--mint)">실제 유저</b>는 제안을 수락해야 하지만 훨씬 생산적입니다(1인 +8%).</p>' +
+    '<div class="kv"><span>현재 직원</span><b>NPC ' + (l.bld_emp||0) + '명 · 유저 ' + myStaff(l.id).length + '명</b></div>' +
+    '<div class="kv"><span>NPC 인건비</span><b class="warn-red">' + fmtW(w) + ' / 1인 / 3분</b></div>' +
+    '<div class="mgacts" style="margin:12px 0"><button class="go" id="npcAdd">＋ NPC 1명</button>' +
+    '<button id="npcDel"' + ((l.bld_emp||0)<1?' disabled':'') + '>－ NPC 1명</button></div>' +
+    '<h3 style="font-size:13.5px;margin:16px 0 6px">유저 채용 제안</h3>' +
+    '<input class="auth-in" id="hireId" maxlength="12" placeholder="상대 아이디" autocomplete="off" aria-label="채용할 아이디">' +
+    '<input class="auth-in" id="hireW" type="number" min="100" step="100" value="' + Math.max(100, w*2) + '" aria-label="제시 급여">' +
+    '<button class="big-btn" id="hireGo">제안 보내기</button>' +
+    '<div class="warnbox" style="margin-top:12px">급여는 3분마다 자동으로 지급됩니다. 유저 직원은 회사당 5명까지입니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  const setEmp = async n=>{
+    try{
+      const r = await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:{emp:n}});
+      if(!r.ok) return toast(r.err || '실패');
+      closeModal(); toast('직원 ' + n + '명이 되었습니다'); refreshLandAll();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+  $('npcAdd').onclick = ()=>setEmp(Math.min(20, (l.bld_emp||0)+1));
+  $('npcDel').onclick = ()=>setEmp(Math.max(0, (l.bld_emp||0)-1));
+  $('hireGo').onclick = async ()=>{
+    const id = ($('hireId').value||'').trim(), wage = Math.floor(Number($('hireW').value)||0);
+    if(!id) return toast('아이디를 입력해주세요');
+    if(wage < 100) return toast('급여는 100원 이상이어야 합니다');
+    try{
+      const r = await rpc('app_job_offer', {p_user:AUTH.name, p_token:SRV_TOKEN, p_land:l.id, p_worker:id, p_wage:wage});
+      if(!r.ok) return toast(r.err || '실패');
+      closeModal(); toast('📩 ' + r.worker + ' 님에게 제안을 보냈습니다');
+      await loadJobs(); refreshLandAll();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+/* 이름 바꾸기 */
+function openRename(l){
+  openModal('<h2>✏️ 이름 바꾸기</h2>' +
+    '<input class="auth-in" id="rnNm" maxlength="16" value="' + esc(l.bld_name||'') + '" placeholder="이름 (16자까지)" style="margin-top:12px" aria-label="건물 이름">' +
+    '<button class="big-btn" id="rnGo">저장</button>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  $('rnGo').onclick = async ()=>{
+    try{
+      const r = await rpc('app_bld_rename', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_name:($('rnNm').value||'').trim()});
+      if(!r.ok) return toast(r.err || '실패');
+      closeModal(); toast('이름을 바꿨습니다'); refreshLandAll();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+async function refreshLandAll(){ await loadLands(); await loadJobs(); renderLand(); }
+
+/* 3분마다 건물 수익 정산 — 서버의 마지막 정산 시각을 기준으로 한다 */
+async function collectBuildings(){
+  if(!G || !usersReady()) return;
+  await loadLands(); await loadJobs();
+  const now = Date.now();
+  let total = 0, lines = [];
+  for(const l of myLands()){
+    if(!(l.bld_level > 0)) continue;
+    const last = l.paid_at ? new Date(l.paid_at).getTime() : now;
+    let n = Math.floor((now - last) / TICK_MS_BLD);
+    if(n < 1) continue;
+    n = Math.min(n, MAX_CATCHUP);
+    const patch = {paid:'1'};
+    let gain = 0;
+    if(l.bld_type === 'shop'){
+      let st = l.bld_stock || 0;
+      for(let i=0;i<n;i++){
+        const sold = Math.min(st, demandOf(l));
+        if(!sold) break;
+        gain += sold * (unitPriceOf(l) - unitCostOf(l));
+        st -= sold;
+      }
+      patch.stock = st;
+    }else{
+      gain = bldIncome(l) * n;
+    }
+    try{ await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:patch}); }catch(e){ continue; }
+    // 유저 직원 급여는 실제로 보낸다
+    for(const j of myStaff(l.id)){
+      const pay = Math.floor(Number(j.wage)||0) * n;
+      if(pay > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (급여)', to_lc:j.worker_name.toLowerCase(), amount:pay}); }catch(e){} }
+    }
+    total += gain;
+    if(gain !== 0) lines.push((l.bld_name||BLD[l.bld_type].nm) + ' ' + (gain>0?'+':'') + Math.round(gain).toLocaleString());
+  }
+  if(total !== 0){
+    G.cash = Math.max(0, G.cash + total);
+    saveGame(true); renderAll();
+    toast((total>0?'🏗️ 건물 수익 ':'📉 건물 적자 ') + fmtW(Math.abs(total)) + ' · ' + lines.slice(0,2).join(', '));
+    renderLand();
+  }
+}
+function startCollect(){
+  if(collectTimer) clearInterval(collectTimer);
+  collectTimer = setInterval(collectBuildings, 60000);   // 1분마다 확인, 3분치가 쌓였으면 지급
+}
+
 /* 장이 바뀔 때 임대수익 지급 */
 async function payRent(){
   if(!G || !myLc() || !isUnlocked('land')) return;
   await loadLands();
-  const rent = landRent();
+  const rent = myLands().filter(l=>!(l.bld_level>0)).reduce((a,l)=>a + Math.round(Number(l.base_price)*RENT_PER_SESSION), 0);
   if(rent !== 0){
     G.cash = Math.max(0, G.cash + rent); saveGame(true); renderAll();
     toast(rent > 0 ? ('🏞️ 부동산 수익 ' + fmtW(rent) + '이 들어왔습니다')
@@ -2551,7 +2888,7 @@ function startGame(slot){
   resetCasino(); overShown=false;
   payPending(true);            // 연출 도중에 끊긴 판이 있으면 당첨금부터 지급한다
   claimMorningBonus(); claimLaunchBonus();
-  claimMoney();
+  claimMoney(); collectBuildings();
   showScreen('game');
   renderNav('kr'); switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed();
@@ -2579,6 +2916,15 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.4', date:'2026-09-22', title:'건물 경영 — 난이도 3단계',
+    items:[
+      ['new','🏬 아파트 — 손 안 대도 3분마다 임대료가 들어옵니다'],
+      ['new','🏪 가게 — 재고를 발주해야 팔립니다. 재고가 떨어지면 매출이 멈춥니다'],
+      ['new','🏢 회사 — 이름을 직접 짓고, 직원을 뽑고, 신제품을 개발합니다. 인건비가 크면 적자가 납니다'],
+      ['new','실제 유저를 직원으로 채용할 수 있습니다. 제안을 보내고 상대가 수락하면 3분마다 급여가 자동 지급됩니다 (NPC +2% / 유저 +8%)'],
+      ['new','부동산 탭에 내 건물 경영 칸과 일자리 칸이 생겼습니다'],
+      ['chg','건물 수익 정산 주기가 장(30분)에서 3분으로 바뀌었습니다'],
+    ]},
   { v:'2.3', date:'2026-09-22', title:'건물 · 탭 정리 · 땅값 인상',
     items:[
       ['new','내 땅 위에 건물을 지을 수 있습니다 — 🏬 아파트 · 🏪 가게 · 🏢 회사'],

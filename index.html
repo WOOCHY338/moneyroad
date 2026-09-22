@@ -2171,11 +2171,21 @@ async function loadLands(){
   try{ LANDS = await rpc('app_lands', {}); }catch(e){ LANDS = []; }
   buildCorpStocks();
 }
+/* ── 재분양 ─────────────────────────────────────────
+   모든 땅과 건물을 되돌리고 쓴 돈을 돌려드렸습니다.
+   같은 출발선에서 다시 시작하도록 이 시각까지는 아무도 살 수 없습니다. */
+const LAND_OPEN_AT = Date.UTC(2026, 8, 22, 5, 30, 0);     // 한국시간 9월 22일 오후 2시 30분
+const landOpen = ()=> Date.now() >= LAND_OPEN_AT;
+function landOpenLeft(){
+  const ms = Math.max(0, LAND_OPEN_AT - Date.now());
+  const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000), sec = Math.floor(ms%60000/1000);
+  return (h ? h + '시간 ' : '') + m + '분 ' + String(sec).padStart(2,'0') + '초';
+}
 function landRow(l){
   const mine = !!myLc() && l.owner_lc === myLc();
   const free = !l.owner_lc;
   const online = srvMode && !!SRV_TOKEN;                 // 서버 계정으로 로그인해야 거래할 수 있다
-  const canBuy = isUnlocked('land') && myLc() && online && l.for_sale && !mine && G;
+  const canBuy = isUnlocked('land') && myLc() && online && l.for_sale && !mine && G && landOpen();
   let acts = '';
   if(mine){
     const d = online ? '' : ' disabled';
@@ -2209,6 +2219,15 @@ async function renderLand(){
   else if(!(srvMode && SRV_TOKEN)){ if(mode) mode.textContent='서버 계정으로 로그인해야 거래할 수 있습니다'; }
   else { const n=myLands().length; if(mode) mode.textContent = n ? ('내 땅 '+n+'필지 · 임대 '+fmtW(landRent())+'/장') : '아직 가진 땅이 없습니다'; }
   await loadLands();
+  const note = $('landNote');
+  if(note){
+    note.innerHTML = landOpen()
+      ? '전국 10필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>' +
+        '<b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.'
+      : '🏗️ <b>전체 재분양</b> — 땅과 건물을 모두 되돌리고, 쓰신 돈은 전액 돌려드렸습니다.<br>' +
+        '<b style="color:var(--gold)">오늘 오후 2시 30분</b>부터 다시 사실 수 있습니다 · 남은 시간 ' +
+        '<b style="color:var(--gold)">' + landOpenLeft() + '</b>';
+  }
   el.innerHTML = LANDS.length ? LANDS.map(landRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
   renderLandMap();
   renderMgmt(); renderJobs();
@@ -2225,6 +2244,7 @@ async function renderLand(){
   });
 }
 function buyLand(l){
+  if(!landOpen()) return toast('오후 2시 30분부터 살 수 있습니다 · 남은 시간 ' + landOpenLeft());
   if(!isUnlocked('land')) return toast('부동산을 먼저 해금해주세요');
   if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 땅을 살 수 있습니다');
   if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
@@ -2681,13 +2701,27 @@ async function collectBuildings(){
     renderLand();
   }
 }
-let shiftTimer = null;
+let shiftTimer = null, landWasOpen = null;
 function startShiftClock(){
   if(shiftTimer) clearInterval(shiftTimer);
   shiftTimer = setInterval(()=>{
+    const modal = $('modal').classList.contains('on');
     const panel = $('jobPanel');
-    if(panel && !panel.hidden && !$('modal').classList.contains('on')) renderJobs();
-  }, 5000);
+    if(panel && !panel.hidden && !modal) renderJobs();
+    // 분양 시각이 지나면 한 번만 다시 그려 '사기' 버튼을 살린다
+    const open = landOpen();
+    if(landWasOpen === null){ landWasOpen = open; }
+    else if(open !== landWasOpen){
+      landWasOpen = open;
+      if(open) toast('🏞️ 부동산 분양이 시작되었습니다');
+      if(!modal) renderLand();
+    }
+    const note = $('landNote');
+    if(!open && note && note.innerHTML.indexOf('남은 시간') >= 0){
+      note.innerHTML = note.innerHTML.replace(/남은 시간 <b style="color:var\(--gold\)">[^<]*<\/b>/,
+        '남은 시간 <b style="color:var(--gold)">' + landOpenLeft() + '</b>');
+    }
+  }, 1000);
 }
 function startCollect(){
   startShiftClock();
@@ -3055,6 +3089,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.7', date:'2026-09-22', title:'부동산 전체 재분양',
+    items:[
+      ['del','모든 땅의 소유권과 건물을 되돌렸습니다. 회사도 함께 사라지고 직원 계약도 모두 종료됩니다'],
+      ['new','땅값 · 건축비 · 신제품 개발에 쓰신 돈은 전액 돌려드렸습니다. 접속하시면 자동으로 들어옵니다'],
+      ['chg','오늘 오후 2시 30분부터 다시 살 수 있습니다. 그때까지는 아무도 살 수 없어 모두 같은 출발선입니다'],
+      ['fix','부동산 화면에 분양 개시까지 남은 시간이 표시됩니다'],
+    ]},
   { v:'2.6', date:'2026-09-22', title:'신규 상장 10종목 · 직원 업무',
     items:[
       ['new','국내 5종목 추가 — 포스코홀딩스 · 기아 · KB금융 · 아모레퍼시픽 · 두산에너빌리티'],

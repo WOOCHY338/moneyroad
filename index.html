@@ -83,6 +83,14 @@ input{font-family:inherit}
   background:var(--panel2);border:1px solid var(--line)}
 .lrow .lacts .buy{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border:none}
 .lrow .lacts button:disabled{opacity:.4;cursor:not-allowed}
+.lrow .lacts .build{background:linear-gradient(135deg,var(--mint),#12b48c);color:#00251b;border:none}
+.bldpick{display:flex;flex-direction:column;gap:9px;margin:12px 0}
+.bldcard{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.bldcard:hover:not(:disabled){border-color:var(--gold)}
+.bldcard:disabled{opacity:.45;cursor:not-allowed}
+.bldcard .bh{font-size:15px;font-weight:800}
+.bldcard .bd{font-size:11.5px;color:var(--sub);margin:4px 0 6px;line-height:1.55}
+.bldcard .bp{font-size:12px;color:var(--txt)}
 .lown{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#0f2a1f;color:var(--mint)}
 .lsale{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:#2a2312;color:var(--gold)}
 
@@ -263,6 +271,13 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}
 @keyframes roll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 .ticker .track span{margin-right:48px}
 nav{max-width:1180px;margin:0 auto;padding:12px 14px 0;display:flex;gap:7px;flex-wrap:wrap}
+#navMain{padding-bottom:0}
+#navMain button{font-size:14.5px;font-weight:800}
+#navMain button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border-color:transparent}
+#navSub{padding-top:8px}
+#navSub button{font-size:13px;padding:8px 13px;min-height:38px;background:#0d1524;border-color:#1b2740}
+#navSub button.on{background:var(--panel2);border-color:var(--gold);color:var(--gold)}
+#navSub:empty{display:none}
 nav button{padding:11px 16px;min-height:44px;border-radius:11px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:13.5px}
 nav button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border-color:transparent}
 main{max-width:1180px;margin:0 auto;padding:14px}
@@ -466,19 +481,8 @@ tr:last-child td{border-bottom:none}
   <div class="ticker"><div class="lbl">속보</div><div class="track" id="tickerTrack"></div></div>
   <div id="noticeBar" hidden></div>
 
-  <nav>
-    <button class="on" data-tab="kr">🇰🇷 국내주식</button>
-    <button data-tab="us">🌎 해외주식</button>
-    <button data-tab="pf">💼 내 포트폴리오</button>
-    <button data-tab="bank">🏦 은행/대출</button>
-    <button data-tab="casino">🎰 카지노</button>
-    <button data-tab="news">📰 뉴스</button>
-    <button data-tab="community">💬 커뮤니티</button>
-    <button data-tab="rank">🏆 랭킹</button>
-    <button data-tab="land">🏞️ 부동산</button>
-    <button data-tab="users">👥 유저</button>
-    <button data-tab="patch">📋 패치노트</button>
-  </nav>
+  <nav id="navMain"></nav>
+  <nav id="navSub"></nav>
 
   <main>
     <div class="tab on" id="tab-kr"><div class="panel"><h3>국내 증시 <small>클릭하면 매수/매도 창이 열립니다</small></h3><div class="grid" id="gridKR"></div></div></div>
@@ -1698,6 +1702,12 @@ function userRow(u){
     '<div class="usub">' + (u.net_worth!=null?fmtW(u.net_worth):'&nbsp;') + (live?' · 🟢 접속 중':'') + '</div></div>' +
     acts + '</div>';
 }
+function bldTag(l){
+  if(!l.bld_type || !(l.bld_level > 0)) return ' · <span style="color:#6b7c9e">빈 땅</span>';
+  const b = BLD[l.bld_type];
+  return ' · <span style="color:var(--mint);font-weight:700">' + b.nm + ' Lv' + l.bld_level +
+         (l.bld_type==='corp' && l.bld_sector ? '(' + esc(l.bld_sector) + ')' : '') + '</span>';
+}
 function bindUserRows(root){
   root.querySelectorAll('.urow').forEach(row=>{
     const lc = row.dataset.lc, name = row.dataset.name;
@@ -1887,11 +1897,53 @@ $('waIn').onkeydown = e=>{ if(e.key==='Enter') sendWhisper(); };
 /* ==================== 부동산 ====================
    전국 10필지. 서버가 소유권을 관리하고, 값은 주인이 정합니다.
    땅은 계정에 귀속되어 판을 새로 시작해도 유지되고, 임대수익은 장이 바뀔 때 들어옵니다. */
-const RENT_PER_SESSION = 0.025;      // 장(30분)마다 기준가의 2.5%
+const RENT_PER_SESSION = 0.010;      // 빈 땅은 장(30분)마다 기준가의 1% — 건물을 지어야 제값을 한다
+
+/* ── 건물 ───────────────────────────────────────────────
+   건축비와 수익은 모두 '땅값'에 비례합니다. 비싼 땅일수록 크게 벌고 크게 듭니다.
+   레벨은 1~5, 올릴수록 수익이 1 → 1.4 → 1.9 → 2.5 → 3.2배가 됩니다.      */
+const BLD = {
+  apt:  { nm:'🏬 아파트', cost:0.60, yield:0.040, desc:'매 장 같은 임대수익이 들어옵니다. 변동이 없어 안전합니다.' },
+  shop: { nm:'🏪 가게',   cost:0.35, yield:0.030, desc:'시간대 이벤트에 매출이 오르내립니다. 적게 투자해 중간 수익.' },
+  corp: { nm:'🏢 회사',   cost:1.00, yield:0.055, desc:'업종을 고르면 그 섹터 뉴스에 실적이 연동됩니다. 적자도 납니다.' },
+};
+const LV_MULT = [0, 1, 1.4, 1.9, 2.5, 3.2];        // 레벨별 수익 배수
+function bldCost(l, type){ return Math.round(Number(l.base_price) * BLD[type].cost); }
+function upCost(l){ return Math.round(bldCost(l, l.bld_type) * 0.8 * (l.bld_level || 1)); }
+function bldSectors(){ return [...new Set(STOCK_DEF.map(d=>d.sec))]; }
+
+/* 섹터의 최근 기세 — 회사 실적에 쓰입니다. 시세가 공유되므로 모두 같은 값이 나옵니다. */
+function sectorMomentum(sec){
+  const list = (MARKET ? MARKET.stocks : []).filter(x=>x.sec===sec && !x.dead);
+  if(!list.length) return 0;
+  const m = list.reduce((a,x)=>{
+    const h = x.hist || [];
+    if(h.length < 30) return a;
+    return a + (h[h.length-1] / h[h.length-30] - 1);
+  }, 0) / list.length;
+  return Math.max(-0.6, Math.min(0.6, m));
+}
+/* 이 장에서 이 건물이 낼 수익. 같은 장·같은 건물이면 누가 계산해도 같다. */
+function bldIncome(l, session){
+  if(!l.bld_type || !(l.bld_level > 0)) return Math.round(Number(l.base_price) * RENT_PER_SESSION);
+  const b = BLD[l.bld_type];
+  const base = Number(l.base_price) * b.yield * (LV_MULT[l.bld_level] || 1);
+  if(l.bld_type === 'apt') return Math.round(base);
+  if(l.bld_type === 'shop'){
+    const ev = eventAt(sessionStartMs(session));     // 그 장의 시간대
+    const boost = ev ? ev.boost : 1;
+    const r = mulberry32(((session * 0x45D9F3B) ^ (l.id.charCodeAt(1) * 2654435761)) >>> 0)();
+    return Math.round(base * boost * (0.6 + r * 0.8));   // ±40%
+  }
+  // 회사 — 섹터 기세에 연동, 적자도 난다
+  const mom = sectorMomentum(l.bld_sector || '반도체');
+  return Math.round(base * (0.55 + mom * 1.6));
+}
+
 let LANDS = [], landTimer = null;
 
 function myLands(){ const me = myLc(); return me ? LANDS.filter(l=>l.owner_lc === me) : []; }
-function landRent(){ return myLands().reduce((a,l)=>a + Number(l.base_price)*RENT_PER_SESSION, 0); }
+function landRent(){ const ss = MARKET ? MARKET.session : 0; return myLands().reduce((a,l)=>a + bldIncome(l, ss), 0); }
 
 async function loadLands(){
   if(!commOnline()){ LANDS = []; return; }
@@ -1905,8 +1957,13 @@ function landRow(l){
   let acts = '';
   if(mine){
     const d = online ? '' : ' disabled';
-    acts = '<button data-land="' + esc(l.id) + '" data-act="sell"' + d + '>' + (l.for_sale ? '호가 변경' : '팔기') + '</button>' +
-           (l.for_sale ? '<button data-land="' + esc(l.id) + '" data-act="cancel"' + d + '>거두기</button>' : '');
+    const hasB = l.bld_level > 0;
+    acts = (hasB
+        ? (l.bld_level < 5 ? '<button data-land="' + esc(l.id) + '" data-act="up"' + d + '>⬆ 증축</button>' : '')
+          + '<button data-land="' + esc(l.id) + '" data-act="raze"' + d + '>철거</button>'
+        : '<button class="build" data-land="' + esc(l.id) + '" data-act="build"' + d + '>🔨 건물 짓기</button>') +
+      '<button data-land="' + esc(l.id) + '" data-act="sell"' + d + '>' + (l.for_sale ? '호가 변경' : '팔기') + '</button>' +
+      (l.for_sale ? '<button data-land="' + esc(l.id) + '" data-act="cancel"' + d + '>거두기</button>' : '');
   }else if(l.for_sale){
     acts = '<button class="buy" data-land="' + esc(l.id) + '" data-act="buy"' + (canBuy?'':' disabled') + '>사기</button>';
   }
@@ -1916,8 +1973,8 @@ function landRow(l){
   return '<div class="lrow ' + (mine?'mine':'') + '">' +
     '<div class="lt t' + l.tier + '">🏞️</div>' +
     '<div class="li"><div class="ln">' + esc(l.name) + ' ' + badge + '</div>' +
-    '<div class="ls">' + esc(l.region) + ' · 기준가 ' + fmtW(l.base_price) +
-    ' · 임대 ' + fmtW(Number(l.base_price)*RENT_PER_SESSION) + '/장</div></div>' +
+    '<div class="ls">' + esc(l.region) + ' · 기준가 ' + fmtW(l.base_price) + bldTag(l) +
+    ' · 수익 ' + fmtW(bldIncome(l, MARKET?MARKET.session:0)) + '/장</div></div>' +
     '<div class="lp"><b>' + (l.for_sale ? fmtW(l.price) : '—') + '</b><span>' + (l.for_sale?'호가':'비매물') + '</span></div>' +
     '<div class="lacts">' + acts + '</div></div>';
 }
@@ -1937,6 +1994,9 @@ async function renderLand(){
       if(b.dataset.act==='buy')    buyLand(l);
       if(b.dataset.act==='sell')   sellLand(l);
       if(b.dataset.act==='cancel') listLand(l, 0, false);
+      if(b.dataset.act==='build')  openBuild(l);
+      if(b.dataset.act==='up')     upgradeBuild(l);
+      if(b.dataset.act==='raze')   razeBuild(l);
     };
   });
 }
@@ -1948,7 +2008,7 @@ function buyLand(l){
   openModal('<h2>🏞️ ' + esc(l.name) + '</h2>' +
     '<div class="kv"><span>지역</span><b>' + esc(l.region) + '</b></div>' +
     '<div class="kv"><span>호가</span><b style="color:var(--gold)">' + fmtW(price) + '</b></div>' +
-    '<div class="kv"><span>임대수익</span><b>' + fmtW(Number(l.base_price)*RENT_PER_SESSION) + ' / 장(30분)</b></div>' +
+    '<div class="kv"><span>현재 수익</span><b>' + fmtW(bldIncome(l, MARKET?MARKET.session:0)) + ' / 장(30분)</b></div>' +
     '<div class="kv"><span>내 현금</span><b>' + fmtW(G.cash) + '</b></div>' +
     (l.owner_name ? '<div class="kv"><span>현재 주인</span><b>' + esc(l.owner_name) + '</b></div>' : '') +
     '<button class="big-btn" id="lbGo" style="margin-top:14px"' + (G.cash < price ? ' disabled' : '') + '>' +
@@ -1994,14 +2054,89 @@ async function listLand(l, price, on){
     renderLand();
   }catch(e){ toast('실패: ' + e.message); }
 }
+/* 건물 짓기 */
+function openBuild(l){
+  if(!G) return toast('게임을 시작한 뒤에 지을 수 있습니다');
+  const secs = bldSectors();
+  const cards = Object.keys(BLD).map(k=>{
+    const b = BLD[k], c = bldCost(l, k);
+    const inc = Math.round(Number(l.base_price) * b.yield);
+    return '<button class="bldcard" data-bt="' + k + '"' + (G.cash < c ? ' disabled' : '') + '>' +
+      '<div class="bh">' + b.nm + '</div>' +
+      '<div class="bd">' + b.desc + '</div>' +
+      '<div class="bp">건축비 <b>' + fmtW(c) + '</b> · 수익 약 <b>' + fmtW(inc) + '</b>/장</div></button>';
+  }).join('');
+  openModal('<h2>🔨 ' + esc(l.name) + '에 건물 짓기</h2>' +
+    '<div class="kv"><span>내 현금</span><b style="color:var(--gold)">' + fmtW(G.cash) + '</b></div>' +
+    '<div class="bldpick">' + cards + '</div>' +
+    '<div id="secPick" hidden><p style="color:var(--sub);font-size:12.5px;margin:10px 0 6px">회사 업종을 고르세요. 그 섹터 뉴스에 실적이 연동됩니다.</p>' +
+    '<select class="auth-in" id="bldSec" aria-label="회사 업종">' + secs.map(x=>'<option>' + esc(x) + '</option>').join('') + '</select>' +
+    '<button class="big-btn" id="bldGo">이 업종으로 설립</button></div>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  document.querySelectorAll('[data-bt]').forEach(btn=>btn.onclick=()=>{
+    const t = btn.dataset.bt;
+    if(t === 'corp'){ $('secPick').hidden = false; $('bldGo').onclick = ()=>doBuild(l, 'corp', $('bldSec').value); }
+    else doBuild(l, t, null);
+  });
+}
+async function doBuild(l, type, sector){
+  const cost = bldCost(l, type);
+  if(G.cash < cost) return toast('현금이 부족합니다');
+  try{
+    const r = await rpc('app_build', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_type:type, p_sector:sector});
+    if(!r.ok) return toast(r.err || '짓지 못했습니다');
+    G.cash -= cost; saveGame(true); renderAll();
+    closeModal(); toast('🔨 ' + l.name + '에 ' + BLD[type].nm + '을(를) 지었습니다');
+    renderLand();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+async function upgradeBuild(l){
+  const cost = upCost(l);
+  if(!G) return;
+  if(G.cash < cost) return toast('증축 비용 ' + fmtW(cost) + '이 필요합니다');
+  openModal('<h2>⬆ ' + esc(l.name) + ' 증축</h2>' +
+    '<div class="kv"><span>현재</span><b>' + BLD[l.bld_type].nm + ' Lv' + l.bld_level + '</b></div>' +
+    '<div class="kv"><span>증축 후</span><b style="color:var(--mint)">Lv' + (l.bld_level+1) + ' · 수익 ' +
+      Math.round((LV_MULT[l.bld_level+1]/LV_MULT[l.bld_level])*100-100) + '% 상승</b></div>' +
+    '<div class="kv"><span>비용</span><b style="color:var(--gold)">' + fmtW(cost) + '</b></div>' +
+    '<button class="big-btn" id="upGo" style="margin-top:12px">증축하기</button>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  $('upGo').onclick = async ()=>{
+    $('upGo').disabled = true;
+    try{
+      const r = await rpc('app_build_up', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id});
+      if(!r.ok){ $('upGo').disabled=false; return toast(r.err || '증축하지 못했습니다'); }
+      G.cash -= cost; saveGame(true); renderAll();
+      closeModal(); toast('⬆ Lv' + r.level + '로 증축했습니다');
+      renderLand();
+    }catch(e){ $('upGo').disabled=false; toast('실패: ' + e.message); }
+  };
+}
+function razeBuild(l){
+  openModal('<h2>🧨 ' + esc(l.name) + ' 철거</h2>' +
+    '<p style="color:var(--sub);font-size:13px;margin:10px 0;line-height:1.8">' +
+    BLD[l.bld_type].nm + ' Lv' + l.bld_level + '을(를) 철거합니다.<br>' +
+    '<b style="color:#ffb3c0">건축비는 돌려받지 못합니다.</b></p>' +
+    '<button class="big-btn" id="razeGo" style="background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff">철거한다</button>' +
+    '<button class="ghost-btn" onclick="closeModal()">취소</button>');
+  $('razeGo').onclick = async ()=>{
+    try{
+      const r = await rpc('app_build_del', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id});
+      if(!r.ok) return toast(r.err || '철거하지 못했습니다');
+      closeModal(); toast('🧨 철거했습니다'); renderLand();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+
 /* 장이 바뀔 때 임대수익 지급 */
 async function payRent(){
   if(!G || !myLc() || !isUnlocked('land')) return;
   await loadLands();
   const rent = landRent();
-  if(rent > 0){
-    G.cash += rent; saveGame(true); renderAll();
-    toast('🏞️ 임대수익 ' + fmtW(rent) + '이 들어왔습니다');
+  if(rent !== 0){
+    G.cash = Math.max(0, G.cash + rent); saveGame(true); renderAll();
+    toast(rent > 0 ? ('🏞️ 부동산 수익 ' + fmtW(rent) + '이 들어왔습니다')
+                   : ('📉 회사 적자로 ' + fmtW(-rent) + '을 잃었습니다'));
   }
 }
 function startLandPoll(){
@@ -2327,7 +2462,7 @@ function startGame(slot){
   claimMorningBonus(); claimLaunchBonus();
   claimMoney();
   showScreen('game');
-  switchTab('kr'); renderAll(); renderNews(); updateTicker();
+  renderNav('kr'); switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed();
 }
 
@@ -2353,6 +2488,14 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.3', date:'2026-09-22', title:'건물 · 탭 정리 · 땅값 인상',
+    items:[
+      ['new','내 땅 위에 건물을 지을 수 있습니다 — 🏬 아파트 · 🏪 가게 · 🏢 회사'],
+      ['new','건물은 5레벨까지 증축할 수 있고, 증축할수록 수익이 최대 3.2배가 됩니다'],
+      ['chg','땅값을 10배로 올렸습니다 (강남 3,000만 ~ 강릉 300만)'],
+      ['chg','빈 땅 임대수익을 2.5%에서 1%로 낮췄습니다. 건물을 지어야 제값을 합니다'],
+      ['chg','상단 탭을 주식 · 부동산 · 경제 · 마이페이지로 묶었습니다'],
+    ]},
   { v:'2.2', date:'2026-09-22', title:'부동산 — 전국 10필지',
     items:[
       ['new','부동산 탭 추가. 50,000원으로 해금하면 전국 10필지를 사고팔 수 있습니다'],
@@ -3056,7 +3199,8 @@ function renderNavLocks(){
   if(!G) return;
   for(const key in UNLOCKS){
     const u = UNLOCKS[key];
-    const b = document.querySelector(`nav button[data-tab="${u.tab}"]`);
+    const b = document.querySelector(`#navSub button[data-tab="${u.tab}"]`)
+           || document.querySelector(`#navMain button[data-group="${u.tab==='land'?'land':''}"]`);
     if(!b) continue;
     b.textContent = isUnlocked(key) ? u.nm : `${u.nm} 🔒`;
     b.title = isUnlocked(key) ? '' : `${u.cost.toLocaleString()}원에 열 수 있습니다`;
@@ -3087,10 +3231,39 @@ function askUnlock(key){
 }
 
 /* ==================== 탭 ==================== */
+/* ==================== 탭 구성 ====================
+   상위 탭으로 묶고, 그 안에서 세부 탭을 고릅니다. */
+const TAB_GROUPS = [
+  { key:'stock', nm:'📈 주식',       tabs:[['kr','🇰🇷 국내주식'], ['us','🌎 해외주식']] },
+  { key:'land',  nm:'🏞️ 부동산',     tabs:[['land','🏞️ 부동산']] },
+  { key:'econ',  nm:'💰 경제',       tabs:[['bank','🏦 은행/대출'], ['casino','🎰 카지노'], ['news','📰 뉴스']] },
+  { key:'my',    nm:'👤 마이페이지',  tabs:[['users','👥 유저'], ['community','💬 커뮤니티'], ['rank','🏆 랭킹'], ['pf','💼 내 포트폴리오']] },
+  { key:'info',  nm:'📋 패치노트',    tabs:[['patch','📋 패치노트']] },
+];
+const groupOfTab = t => TAB_GROUPS.find(g=>g.tabs.some(x=>x[0]===t));
+let curGroup = 'stock';
+function renderNav(active){
+  const g0 = groupOfTab(active);
+  if(g0) curGroup = g0.key;
+  const main = $('navMain'), sub = $('navSub');
+  if(!main || !sub) return;
+  main.innerHTML = TAB_GROUPS.map(g=>
+    '<button data-group="' + g.key + '"' + (g.key===curGroup?' class="on"':'') + '>' + g.nm + '</button>').join('');
+  main.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>{
+    const g = TAB_GROUPS.find(x=>x.key===b.dataset.group);
+    if(g) switchTab(g.tabs[0][0]);
+  });
+  const g = TAB_GROUPS.find(x=>x.key===curGroup) || TAB_GROUPS[0];
+  sub.innerHTML = g.tabs.length > 1
+    ? g.tabs.map(([t,nm])=>'<button data-tab="' + t + '"' + (t===active?' class="on"':'') + '>' + nm + '</button>').join('')
+    : '';
+  sub.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  renderNavLocks();
+}
 function switchTab(t){
   const key = lockOf(t);
   if(key && !isUnlocked(key)) return askUnlock(key);   // 잠긴 탭은 열리지 않고 해제 창만 뜬다
-  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  renderNav(t);
   document.querySelectorAll('.tab').forEach(d=>d.classList.toggle('on', d.id==='tab-'+t));
   if(t==='pf') renderPortfolio();
   if(t==='bank') renderBank();

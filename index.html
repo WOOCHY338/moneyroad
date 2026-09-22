@@ -2091,11 +2091,48 @@ function bldIncome(l){
 function soldOf(l){ return Math.min(l.bld_stock || 0, demandOf(l)); }
 
 function myLands(){ const me = myLc(); return me ? LANDS.filter(l=>l.owner_lc === me) : []; }
+/* ── 회사 상장 ───────────────────────────────────────
+   유저가 세운 회사는 국내주식에 종목으로 올라갑니다.
+   가격은 회사의 서버 상태(건물·수익·업종 기세)에서 계산하므로
+   모든 접속자가 같은 값을 봅니다. 총 발행주식은 10,000주입니다. */
+const CORP_SHARES = 10000;
+let CORP = [];
+function hashStr(x){ let h=2166136261; for(let i=0;i<x.length;i++){ h^=x.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function corpPrice(l){
+  const val = Number(l.base_price) * 0.6 + Math.max(0, bldIncome(l)) * 200;
+  const p0 = Math.max(100, val / CORP_SHARES);
+  const step = MARKET ? Math.floor(MARKET.t / 10) : 0;          // 10초마다 갱신
+  const sess = MARKET ? MARKET.session : 0;
+  const r = mulberry32(((sess * 0x9E3779B1) ^ (step * 0x85EBCA6B) ^ hashStr(l.id)) >>> 0);
+  const jitter = 1 + (r() - 0.5) * 0.12;                        // ±6%
+  const mom = sectorMomentum(l.bld_sector || '반도체');
+  return Math.max(10, p0 * jitter * (1 + mom * 0.35));
+}
+function buildCorpStocks(){
+  CORP = LANDS.filter(l => l.bld_type === 'corp' && l.bld_level > 0).map(l=>{
+    const px = corpPrice(l);
+    const prev = (CORP.find(c=>c.id === 'C_'+l.id) || {}).prev || px;
+    const old = CORP.find(c=>c.id === 'C_'+l.id);
+    const hist = old ? old.hist.slice() : [];
+    hist.push(px); if(hist.length > 240) hist.shift();
+    return {
+      id: 'C_' + l.id, name: l.bld_name || '무명기업', mkt: 'KR', sec: l.bld_sector || '기타',
+      ico: '🏢', price: px, base: px, prev, vol: 0.03, drift: 0, dead: false,
+      hist, corp: true, landId: l.id, ceo: l.owner_name, lv: l.bld_level, plv: l.bld_plv || 1
+    };
+  });
+  return CORP;
+}
+/* 상장 종목까지 포함한 전체 목록 */
+function allStocks(){ return (MARKET ? MARKET.stocks : []).concat(CORP); }
+function findStock(id){ return allStocks().find(x=>x.id===id); }
+
 function landRent(){ return myLands().reduce((a,l)=>a + bldIncome(l), 0); }
 
 async function loadLands(){
-  if(!commOnline()){ LANDS = []; return; }
+  if(!commOnline()){ LANDS = []; CORP = []; return; }
   try{ LANDS = await rpc('app_lands', {}); }catch(e){ LANDS = []; }
+  buildCorpStocks();
 }
 function landRow(l){
   const mine = !!myLc() && l.owner_lc === myLc();
@@ -2801,7 +2838,7 @@ create policy "wipe" on messages for delete using (true);</div>
 /* ==================== 슬롯 화면 ==================== */
 function totalAssetOf(g){
   let v = g.cash;
-  const list = (MARKET && MARKET.stocks.length) ? MARKET.stocks : (g.stocks||[]);
+  const list = ((MARKET && MARKET.stocks.length) ? MARKET.stocks : (g.stocks||[])).concat(CORP);
   const fx = (MARKET ? MARKET.fx : g.fx) || 1380;
   for(const id in g.holdings){
     const h = g.holdings[id]; const s = list.find(x=>x.id===id);
@@ -2917,6 +2954,12 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.5', date:'2026-09-22', title:'회사 상장',
+    items:[
+      ['new','회사를 세우면 국내주식에 그 이름과 업종으로 종목이 올라갑니다'],
+      ['new','다른 사람이 세운 회사의 주식을 사고팔 수 있습니다. 카드에 대표 이름이 표시됩니다'],
+      ['chg','주가는 회사의 건물 가치 · 수익 · 업종 기세에서 계산되어 모든 접속자가 같은 값을 봅니다'],
+    ]},
   { v:'2.4', date:'2026-09-22', title:'건물 경영 — 난이도 3단계',
     items:[
       ['new','🏬 아파트 — 손 안 대도 3분마다 임대료가 들어옵니다'],
@@ -3511,12 +3554,14 @@ function sparkSVG(hist, up){
 }
 function renderGrid(mkt, elId){
   const el=$(elId);
-  el.innerHTML = G.stocks.filter(s=>s.mkt===mkt).map(s=>{
+  const list = mkt==='KR' ? G.stocks.filter(s=>s.mkt==='KR').concat(CORP) : G.stocks.filter(s=>s.mkt===mkt);
+  el.innerHTML = list.map(s=>{
     const d = (s.dead || !(s.prev > 0)) ? 0 : (s.price/s.prev-1)*100;
     const h = G.holdings[s.id];
     const px = mkt==='US' ? fmtU(s.price) : Math.round(s.price).toLocaleString()+'원';
     const sub = mkt==='US' ? `<span style="font-size:11px;color:var(--sub)"> ≈${Math.round(s.price*G.fx).toLocaleString()}원</span>` : '';
-    const flag = s.dead ? '<span class="sec" style="background:#3a1220;color:#ff8a9c">상장폐지</span>'
+    const flag = s.corp ? '<span class="sec" style="background:#0f2a1f;color:var(--mint)">상장 · ' + esc(s.ceo||'') + '</span>'
+              : s.dead ? '<span class="sec" style="background:#3a1220;color:#ff8a9c">상장폐지</span>'
               : s.warned ? '<span class="sec" style="background:#3a2a12;color:#ffc93c">관리종목</span>' : '';
     return `<button type="button" class="card${s.dead?' dead':''}" data-stock="${esc(s.id)}">
       <div class="row1"><span class="ico">${esc(s.ico)}</span><span class="nm">${esc(s.name)}</span>${flag}<span class="sec">${esc(s.sec)}</span></div>
@@ -3540,7 +3585,7 @@ function holdPLText(s,h){
   return `<span class="${clsOf(pl)}">${pl>=0?'+':''}${Math.round(pl).toLocaleString()}원 (${sign(rt)}%)</span>`;
 }
 function renderPortfolio(){
-  const rows = G.stocks.filter(s=>G.holdings[s.id]&&G.holdings[s.id].qty>0).map(s=>{
+  const rows = allStocks().filter(s=>G.holdings[s.id]&&G.holdings[s.id].qty>0).map(s=>{
     const h=G.holdings[s.id];
     const cur = s.mkt==='US'? s.price*G.fx : s.price;
     const avg = s.mkt==='US'? h.avg*G.fx : h.avg;
@@ -3727,7 +3772,7 @@ document.addEventListener('click', e=>{
 });
 function openTrade(id){
   openStockId=id; tradeQty=1;
-  const s=G.stocks.find(x=>x.id===id); if(!s) return;
+  const s=findStock(id); if(!s) return;
   openModal(`<h2>${s.ico} ${s.name}</h2>
     <div style="font-size:11.5px;color:var(--sub);margin-top:3px">${s.mkt==='US'?'해외':'국내'} · ${s.sec} · ${s.id}</div>
     <canvas class="chartbox" id="stockChart"></canvas>
@@ -3783,7 +3828,7 @@ function maxBuy(s){
 }
 function refreshTradeModal(){
   if(!openStockId) return;
-  const s=G.stocks.find(x=>x.id===openStockId); if(!s || !$('tradeInfo')) return;
+  const s=findStock(openStockId); if(!s || !$('tradeInfo')) return;
   const d=(s.dead || !(s.prev > 0)) ? 0 : (s.price/s.prev-1)*100;
   const h=G.holdings[s.id];
   $('tradeInfo').innerHTML = `

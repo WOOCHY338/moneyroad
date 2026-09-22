@@ -25,14 +25,16 @@ create table if not exists mines (
 alter table mines enable row level security;
 -- 정책 없음 = 공개 키로 직접 수정 불가. 아래 함수로만 다룹니다.
 
+drop function if exists app_mines();
 create or replace function app_mines()
 returns table(id text, name text, region text, ore text, ore_ico text,
               ore_base numeric, rate numeric, base_price numeric, price numeric,
               owner_lc text, owner_name text, for_sale boolean,
-              depth int, npc int, safety int, stock numeric, collapsed timestamptz)
+              depth int, npc int, safety int, stock numeric,
+              collapsed timestamptz, paid_at timestamptz)
 language sql security definer as $fn$
   select id, name, region, ore, ore_ico, ore_base, rate, base_price, price,
-         owner_lc, owner_name, for_sale, depth, npc, safety, stock, collapsed
+         owner_lc, owner_name, for_sale, depth, npc, safety, stock, collapsed, paid_at
     from mines order by base_price;
 $fn$;
 
@@ -150,12 +152,12 @@ grant execute on function app_job_offer(text,text,text,text,numeric) to anon;
 
 -- 광구 6곳
 insert into mines(id, name, region, ore, ore_ico, ore_base, rate, base_price, price) values
- ('M1','태백 탄광',        '강원', '석탄',    '🪨', 1200,  6.0, 60000000,  60000000),
- ('M2','단양 석회석 광산',  '충북', '석회석',  '🧱', 900,   9.0, 45000000,  45000000),
- ('M3','울진 은광',        '경북', '은',      '🥈', 4800,  3.0, 120000000, 120000000),
- ('M4','홍천 희토류 광산',  '강원', '희토류',  '💎', 9500,  2.0, 200000000, 200000000),
- ('M5','무극 금광',        '충북', '금',      '🥇', 21000, 1.4, 300000000, 300000000),
- ('M6','동해 심해 광구',    '동해', '망간단괴','🔮', 34000, 1.1, 400000000, 400000000)
-on conflict (id) do nothing;
+ ('M1','태백 탄광',        '강원', '석탄',    '🪨', 1200,  19, 60000000,  60000000),
+ ('M2','단양 석회석 광산',  '충북', '석회석',  '🧱', 900,   19, 45000000,  45000000),
+ ('M3','울진 은광',        '경북', '은',      '🥈', 4800,  9, 120000000, 120000000),
+ ('M4','홍천 희토류 광산',  '강원', '희토류',  '💎', 9500,  8, 200000000, 200000000),
+ ('M5','무극 금광',        '충북', '금',      '🥇', 21000, 5.2, 300000000, 300000000),
+ ('M6','동해 심해 광구',    '동해', '망간단괴','🔮', 34000, 4.5, 400000000, 400000000)
+on conflict (id) do update set rate = excluded.rate;
 
 select id, name, ore, base_price from mines order by base_price;

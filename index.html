@@ -115,6 +115,33 @@ input{font-family:inherit}
 .staff button{padding:5px 9px;border-radius:7px;font-size:11px;background:#2a1220;border:1px solid #57263a;color:#ff8a9c}
 .warn-red{color:#ff8a9c}
 
+/* ===== 광산 ===== */
+.oreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-bottom:14px}
+.orecard{background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.orecard .oi{font-size:19px}
+.orecard .on{font-size:11.5px;color:var(--sub);font-weight:700;margin-top:2px}
+.orecard .op{font-size:14px;font-weight:800;margin-top:3px}
+.mrow{display:flex;align-items:center;gap:11px;padding:12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.mrow:last-child{border-bottom:0}
+.mrow.mine{background:#0d1a16}
+.mrow .mt{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;background:#17233a;flex:0 0 auto}
+.mrow .mi{flex:1 1 150px;min-width:0}
+.mrow .mn{font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mrow .ms{font-size:11.5px;color:var(--sub);margin-top:3px}
+.mrow .mp{text-align:right;flex:0 0 auto}
+.mrow .mp b{display:block;font-size:14px;font-weight:800}
+.mrow .mp span{font-size:10.5px;color:var(--sub)}
+.mrow .macts{display:flex;gap:6px;flex:1 1 100%;justify-content:flex-end;flex-wrap:wrap}
+.mrow .macts button{padding:7px 12px;font-size:12.5px;border-radius:9px;min-height:36px}
+.mrow .macts button.buy{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;font-weight:800}
+.mrow .macts button.dig{background:#2a1530;border-color:#4a2a55;color:#e0a8ff}
+.mown{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;background:#0f2a1f;color:var(--mint)}
+.msale{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;background:#2a2410;color:var(--gold)}
+.mdanger{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;background:#3a1220;color:#ff8a9c}
+.depthbar{display:flex;gap:3px;margin:8px 0}
+.depthbar i{flex:1;height:7px;border-radius:2px;background:#1b2740}
+.depthbar i.on{background:linear-gradient(90deg,#c58b3a,#ffc93c)}
+
 /* ===== 부동산 미니맵 ===== */
 .mapwrap{background:#0a1020;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:14px}
 #landMap svg{display:block;width:100%;height:auto;max-height:460px;margin:0 auto}
@@ -660,6 +687,22 @@ tr:last-child td{border-bottom:none}
       <div class="panel" id="jobPanel" hidden>
         <h3>💼 일자리 <small>받은 제안과 내 근무</small></h3>
         <div id="jobList"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-mine">
+      <div class="panel">
+        <h3>⛏️ 광산 <small id="mineMode">-</small></h3>
+        <div class="warnbox" id="mineNote" style="margin:0 0 12px">
+          전국 6개 광구뿐입니다. 광부를 고용해 광물을 캐고, 시세가 오를 때 팔아 남깁니다.<br>
+          <b>갱도를 파 내려갈수록 많이 캐지만 붕괴 위험도 같이 오릅니다.</b>
+        </div>
+        <div class="oreboard" id="oreBoard"></div>
+        <div id="mineList"></div>
+      </div>
+      <div class="panel" id="minePanel" hidden>
+        <h3>🏭 내 광산 운영 <small id="mineSum"></small></h3>
+        <div id="mineMgmt"></div>
       </div>
     </div>
 
@@ -1210,7 +1253,7 @@ function bootAuth(){
   maybeShowPatch();
   ensureMarket();
   setInterval(()=>{ if(!G){ ensureMarket(); } const c=$('mktClock'); if(c) c.textContent=sessionClock(); }, 1000);
-  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); startCollect(); loadAdminRemote(); loadCommRemote();
+  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); startCollect(); startMinePoll(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1711,6 +1754,442 @@ document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('[data-rank]').forEach(x=>x.classList.toggle('on', x===b));
   renderRank();
 });
+
+/* ==================== 광산 ====================
+   전국 6개 광구뿐입니다. 광부를 고용하면 3분마다 광물이 창고에 쌓이고,
+   시세가 오를 때 팔아야 남습니다. 갱도를 파 내려갈수록 산출은 늘지만
+   붕괴 확률도 같이 오릅니다. 안전 설비로 위험을 낮출 수 있습니다.
+   붕괴 여부는 (광구, 장, 정산 회차) 시드로 정해져서 누가 계산해도 같습니다. */
+let MINES = [], mineTimer = null;
+
+const MINE_SLOT_MS   = 180000;                    // 3분마다 정산
+const DEPTH_MAX      = 10;
+const SAFETY_MAX     = 5;
+const depthMult  = m => 1 + ((m.depth || 1) - 1) * 0.45;
+const digCost    = m => Math.round(Number(m.base_price) * 0.30 * (m.depth || 1));
+const safetyCost = m => Math.round(Number(m.base_price) * 0.12 * ((m.safety || 0) + 1));
+const npcHire    = m => Math.round(Number(m.base_price) * 0.002);       // 광부 1명 고용비
+const npcPay     = m => Math.round(Number(m.base_price) * 0.000087 * depthMult(m));  // 광부 1명 3분 임금 (깊을수록 위험수당)
+const storeCap   = m => 1200 * (m.depth || 1);
+function collapseRisk(m){                                               // 3분당 붕괴 확률
+  return Math.max(0, (m.depth || 1) * 0.004 * (1 - (m.safety || 0) * 0.16));
+}
+function mineDown(m){                                                   // 붕괴 복구 중인가
+  return !!m.collapsed && Date.now() < new Date(m.collapsed).getTime();
+}
+function myMiners(id){ return JOBS.filter(j => j.land_id === id && j.status === 'active' && j.role === 'boss'); }
+/* 광부 머릿수 — 곡괭이질을 한 유저는 NPC 셋 몫, 손 놓으면 절반 몫 */
+function minerPower(m){
+  const real = myMiners(m.id).reduce((a, j) => a + (onShift(j) ? 3 : 0.5), 0);
+  return (m.npc || 0) + real;
+}
+function mineYield(m){                                                  // 3분에 캐는 양
+  if(mineDown(m)) return 0;
+  return Math.floor(minerPower(m) * depthMult(m) * Number(m.rate));
+}
+function mineWage(m){
+  const npc = (m.npc || 0) * npcPay(m);
+  const real = myMiners(m.id).reduce((a, j) => a + Number(j.wage || 0), 0);
+  return npc + real;
+}
+
+/* 광물 시세 — 20초마다 한 번 움직이고, 모두 같은 값을 봅니다 */
+function orePrice(m){
+  const slot = Math.floor(marketTick() / 20);
+  const r = mulberry32(((hashStr(m.ore) * 0x9E3779B1) ^ (slot * 0x85EBCA6B)) >>> 0);
+  const wave = Math.sin(slot / 9 + hashStr(m.ore) % 7) * 0.18;          // 완만한 파도
+  return Math.max(1, Math.round(Number(m.ore_base) * (0.70 + r() * 0.60 + wave)));
+}
+function orePct(m){
+  return Math.round((orePrice(m) / Number(m.ore_base) - 1) * 100);
+}
+function myMines(){ const me = myLc(); return me ? MINES.filter(m => m.owner_lc === me) : []; }
+
+async function loadMines(){
+  if(!commOnline()){ MINES = []; return; }
+  try{ MINES = await rpc('app_mines', {}) || []; }catch(e){ MINES = []; }
+}
+
+/* ── 광물 시세판 */
+function renderOreBoard(){
+  const el = $('oreBoard'); if(!el) return;
+  el.innerHTML = MINES.map(m=>{
+    const pct = orePct(m);
+    return '<div class="orecard"><div class="oi">' + m.ore_ico + '</div>' +
+      '<div class="on">' + esc(m.ore) + '</div>' +
+      '<div class="op">' + Number(orePrice(m)).toLocaleString() + '원</div>' +
+      '<div class="chg ' + clsOf(pct) + '" style="font-size:11px">' + (pct>0?'▲':pct<0?'▼':'—') + ' ' + sign(pct) + '%</div></div>';
+  }).join('');
+}
+
+/* ── 광구 목록 */
+function mineRow(m){
+  const me = myLc();
+  const mine = !!me && m.owner_lc === me;
+  const online = srvMode && !!SRV_TOKEN;
+  const canBuy = isUnlocked('mine') && me && online && m.for_sale && !mine && G;
+  const down = mineDown(m);
+  let acts = '';
+  if(mine){
+    const d = online ? '' : ' disabled';
+    acts = '<button class="dig" data-mine="' + esc(m.id) + '" data-act="dig"' + d + '>⛏ 갱도 굴착</button>' +
+           '<button data-mine="' + esc(m.id) + '" data-act="hire"' + d + '>👷 광부</button>' +
+           '<button data-mine="' + esc(m.id) + '" data-act="sell"' + d + '>' + (m.for_sale ? '호가 변경' : '팔기') + '</button>' +
+           (m.for_sale ? '<button data-mine="' + esc(m.id) + '" data-act="cancel"' + d + '>거두기</button>' : '');
+  }else if(m.for_sale){
+    acts = '<button class="buy" data-mine="' + esc(m.id) + '" data-act="buy"' + (canBuy?'':' disabled') + '>사기</button>';
+  }
+  const badge = down ? '<span class="mdanger">붕괴 복구 중</span>'
+              : mine ? '<span class="mown">내 광산</span>'
+              : m.for_sale ? '<span class="msale">' + (m.owner_lc ? '매물 (' + esc(m.owner_name||'') + ')' : '매물') + '</span>'
+              : '<span class="usub" style="font-size:11px">' + esc(m.owner_name||'') + ' 소유</span>';
+  return '<div class="mrow ' + (mine?'mine':'') + '">' +
+    '<div class="mt">' + m.ore_ico + '</div>' +
+    '<div class="mi"><div class="mn">' + esc(m.name) + ' ' + badge + '</div>' +
+    '<div class="ms">' + esc(m.region) + ' · ' + esc(m.ore) + ' · 심도 ' + (m.depth||1) + '층 · 광부 ' +
+      ((m.npc||0) + myMiners(m.id).length) + '명 · 산출 ' + mineYield(m).toLocaleString() + '개/3분</div></div>' +
+    '<div class="mp"><b>' + (m.for_sale ? fmtW(m.price) : '—') + '</b><span>' + (m.for_sale?'호가':'비매물') + '</span></div>' +
+    '<div class="macts">' + acts + '</div></div>';
+}
+
+async function renderMine(){
+  const el = $('mineList'); if(!el) return;
+  const mode = $('mineMode');
+  if(!commOnline()){ if(mode) mode.textContent='서버 미연결'; el.innerHTML = '<div class="empty-msg">광산은 서버에 연결해야 이용할 수 있습니다.</div>'; return; }
+  if(!myLc()){ if(mode) mode.textContent='게스트는 볼 수만 있습니다'; }
+  else if(!isUnlocked('mine')){ if(mode) mode.textContent='잠김 — 2,000만원으로 해금'; }
+  else if(!(srvMode && SRV_TOKEN)){ if(mode) mode.textContent='서버 계정으로 로그인해야 거래할 수 있습니다'; }
+  else { const n = myMines().length; if(mode) mode.textContent = n ? ('내 광구 ' + n + '곳') : '아직 가진 광구가 없습니다'; }
+  await loadMines();
+  renderOreBoard();
+  el.innerHTML = MINES.length ? MINES.map(mineRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
+  renderMineMgmt();
+  el.querySelectorAll('[data-mine]').forEach(b=>{
+    b.onclick = ()=>{
+      const m = MINES.find(x=>x.id===b.dataset.mine); if(!m) return;
+      const a = b.dataset.act;
+      if(a==='buy')    buyMine(m);
+      if(a==='sell')   sellMine(m);
+      if(a==='cancel') listMine(m, 0, false);
+      if(a==='dig')    openDig(m);
+      if(a==='hire')   openMiners(m);
+      if(a==='ship')   openShip(m);
+      if(a==='safe')   openSafety(m);
+    };
+  });
+}
+
+/* ── 내 광산 운영 칸 */
+function mineMgmtCard(m){
+  const down = mineDown(m);
+  const left = down ? Math.ceil((new Date(m.collapsed).getTime() - Date.now())/1000) : 0;
+  const stock = Math.floor(Number(m.stock||0)), cap = storeCap(m);
+  const px = orePrice(m);
+  const rows = [
+    '<span>광물<b>' + m.ore_ico + ' ' + esc(m.ore) + ' ' + Number(px).toLocaleString() + '원</b></span>',
+    '<span>창고<b>' + stock.toLocaleString() + ' / ' + cap.toLocaleString() + '개</b></span>',
+    '<span>창고 값어치<b>' + fmtW(stock * px) + '</b></span>',
+    '<span>심도<b>' + (m.depth||1) + ' / ' + DEPTH_MAX + '층</b></span>',
+    '<span>산출<b>' + mineYield(m).toLocaleString() + '개 / 3분</b></span>',
+    '<span>임금<b class="warn-red">' + fmtW(mineWage(m)) + ' / 3분</b></span>',
+    '<span>붕괴 위험<b class="' + (collapseRisk(m) > 0.02 ? 'warn-red' : '') + '">' + (collapseRisk(m)*100).toFixed(1) + '% / 3분</b></span>',
+    '<span>안전 설비<b>' + (m.safety||0) + ' / ' + SAFETY_MAX + '단계</b></span>',
+  ];
+  const bar = '<div class="depthbar">' + Array.from({length:DEPTH_MAX}, (_,i)=>
+    '<i class="' + (i < (m.depth||1) ? 'on' : '') + '"></i>').join('') + '</div>';
+  const staff = myMiners(m.id).length
+    ? '<div style="margin-top:9px">' + myMiners(m.id).map(j=>
+        '<div class="staff"><span class="nm">' + (onShift(j)?'🟢':'💤') + ' ' + esc(j.worker_name) +
+        '<small style="display:block;color:var(--sub);font-weight:600">' +
+        (onShift(j) ? '채굴 중' : '자리 비움') + ' · 실적 ' + (j.shifts||0) + '회</small></span>' +
+        '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
+        '<button data-mine="' + esc(m.id) + '" data-act="fire" data-jid="' + j.id + '">해고</button></div>').join('') + '</div>'
+    : '';
+  const acts = down
+    ? '<div style="color:#ff8a9c;font-weight:800;font-size:12.5px">💥 붕괴 복구 중 — ' + Math.floor(left/60) + ':' + String(left%60).padStart(2,'0') + ' 남음</div>'
+    : '<button class="go" data-mine="' + esc(m.id) + '" data-act="ship">📦 광물 팔기</button>' +
+      '<button class="dig" data-mine="' + esc(m.id) + '" data-act="dig">⛏ 갱도 굴착</button>' +
+      '<button data-mine="' + esc(m.id) + '" data-act="hire">👷 광부</button>' +
+      '<button data-mine="' + esc(m.id) + '" data-act="safe">🦺 안전 설비</button>';
+  return '<div class="mg"><h4>' + m.ore_ico + ' ' + esc(m.name) +
+    ' <span style="font-size:11px;color:var(--sub)">' + esc(m.region) + ' · ' + esc(m.ore) + '</span></h4>' +
+    bar + '<div class="mgstat">' + rows.join('') + '</div>' + staff +
+    '<div class="mgacts">' + acts + '</div></div>';
+}
+function renderMineMgmt(){
+  const panel = $('minePanel'), el = $('mineMgmt');
+  if(!panel || !el) return;
+  const list = myMines();
+  panel.hidden = list.length === 0;
+  if(!list.length) return;
+  const sum = list.reduce((a,m)=>a + Math.floor(Number(m.stock||0)) * orePrice(m), 0);
+  $('mineSum').textContent = '창고 ' + fmtW(sum) + ' 어치';
+  el.innerHTML = list.map(mineMgmtCard).join('');
+  el.querySelectorAll('[data-mine]').forEach(b=>{
+    b.onclick = ()=>{
+      const m = MINES.find(x=>x.id===b.dataset.mine); if(!m) return;
+      const a = b.dataset.act;
+      if(a==='ship') openShip(m);
+      if(a==='dig')  openDig(m);
+      if(a==='hire') openMiners(m);
+      if(a==='safe') openSafety(m);
+      if(a==='fire') endJob(Number(b.dataset.jid), '해고했습니다');
+    };
+  });
+}
+
+/* 바로 채용할 수 있는 사람 목록을 상자에 채웁니다 */
+async function fillHirePick(boxId, inputId){
+  const box = $(boxId); if(!box) return;
+  try{
+    const rows = await rpc('app_hireable', {p_q:''});
+    const list = (rows||[]).filter(r=>r.username !== AUTH.name);
+    box.innerHTML = list.length
+      ? list.map(r=>'<button class="mini-btn" style="margin:3px" data-pick="' + esc(r.username) + '">' + esc(r.username) + '</button>').join('')
+      : '<div style="font-size:11.5px;color:var(--sub);padding:6px">지금 바로 채용할 수 있는 사람이 없습니다.</div>';
+    box.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ const i=$(inputId); if(i) i.value = b.dataset.pick; });
+  }catch(e){
+    box.innerHTML = '<div style="font-size:11.5px;color:var(--sub);padding:6px">목록을 불러오지 못했습니다.</div>';
+  }
+}
+
+/* ── 광구 사고팔기 */
+function buyMine(m){
+  if(!isUnlocked('mine')) return toast('광산을 먼저 해금해주세요');
+  if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 광구를 살 수 있습니다');
+  if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
+  const price = Number(m.price);
+  openModal('<h2>' + m.ore_ico + ' ' + esc(m.name) + '</h2>' +
+    '<div class="kv"><span>지역</span><b>' + esc(m.region) + '</b></div>' +
+    '<div class="kv"><span>광물</span><b>' + esc(m.ore) + ' · 지금 ' + Number(orePrice(m)).toLocaleString() + '원</b></div>' +
+    '<div class="kv"><span>광부 1인 산출</span><b>' + Number(m.rate) + '개 / 3분</b></div>' +
+    '<div class="kv"><span>값</span><b>' + fmtW(price) + '</b></div>' +
+    '<div class="kv"><span>내 현금</span><b>' + fmtW(G.cash) + '</b></div>' +
+    '<button class="big-btn" id="mineBuyGo"' + (G.cash < price ? ' disabled' : '') + '>사기</button>' +
+    '<div class="warnbox" style="margin-top:12px">광구는 계정에 남습니다. 사자마자 광부를 뽑아야 캐기 시작합니다.<br>' +
+    '임금은 3분마다 나가니, 광부만 잔뜩 뽑고 안 팔면 적자가 납니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  $('mineBuyGo').onclick = async ()=>{
+    try{
+      const r = await rpc('app_mine_buy', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id});
+      if(!r.ok) return toast(r.err || '사지 못했습니다');
+      G.cash = Math.max(0, G.cash - Number(r.price)); saveGame(true); renderAll();
+      closeModal(); toast('⛏️ ' + r.name + ' 광구를 샀습니다');
+      renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+function sellMine(m){
+  openModal('<h2>📤 광구 내놓기</h2>' +
+    '<div class="kv"><span>광구</span><b>' + esc(m.name) + '</b></div>' +
+    '<div class="kv"><span>기준가</span><b>' + fmtW(m.base_price) + '</b></div>' +
+    '<input class="auth-in" id="mineAsk" type="number" min="1000" step="1000" value="' + Math.round(Number(m.base_price)) + '" aria-label="호가">' +
+    '<button class="big-btn" id="mineAskGo">이 값으로 내놓기</button>' +
+    '<div class="warnbox" style="margin-top:12px">창고에 쌓인 광물은 같이 넘어갑니다. 팔기 전에 정산하세요.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  $('mineAskGo').onclick = ()=> listMine(m, Math.floor(Number($('mineAsk').value)||0), true);
+}
+async function listMine(m, price, on){
+  try{
+    const r = await rpc('app_mine_sell', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_price:price, p_on:on});
+    if(!r.ok) return toast(r.err || '실패했습니다');
+    closeModal(); toast(on ? '매물로 내놓았습니다' : '매물에서 거뒀습니다'); renderMine();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+
+/* ── 갱도 굴착 */
+function openDig(m){
+  const d = m.depth || 1;
+  if(d >= DEPTH_MAX) return toast('더 내려갈 수 없습니다 (10층이 한계입니다)');
+  const cost = digCost(m);
+  const after = {...m, depth: d + 1};
+  openModal('<h2>⛏ 갱도 굴착</h2>' +
+    '<div class="kv"><span>지금</span><b>' + d + '층 · 산출 ' + mineYield(m).toLocaleString() + '개/3분</b></div>' +
+    '<div class="kv"><span>굴착 뒤</span><b class="up">' + (d+1) + '층 · 산출 ' + mineYield(after).toLocaleString() + '개/3분</b></div>' +
+    '<div class="kv"><span>붕괴 위험</span><b class="warn-red">' + (collapseRisk(m)*100).toFixed(1) + '% → ' + (collapseRisk(after)*100).toFixed(1) + '% / 3분</b></div>' +
+    '<div class="kv"><span>창고 한도</span><b>' + storeCap(m).toLocaleString() + ' → ' + storeCap(after).toLocaleString() + '개</b></div>' +
+    '<div class="kv"><span>임금 (위험수당)</span><b class="warn-red">' + fmtW(mineWage(m)) + ' → ' + fmtW(mineWage(after)) + ' / 3분</b></div>' +
+    '<div class="kv"><span>굴착비</span><b>' + fmtW(cost) + '</b></div>' +
+    '<button class="big-btn" id="digGo"' + (G.cash < cost ? ' disabled' : '') + '>' + fmtW(cost) + ' 내고 파기</button>' +
+    '<div class="warnbox" style="margin-top:12px">깊이 팔수록 굴착비도 같이 비싸집니다. 붕괴가 나면 광부 절반과 창고 광물을 전부 잃고 15분간 멈춥니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  $('digGo').onclick = async ()=>{
+    if(G.cash < cost) return toast('현금이 부족합니다');
+    try{
+      const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{depth:d+1}});
+      if(!r.ok) return toast(r.err || '실패');
+      G.cash -= cost; saveGame(true); renderAll();
+      closeModal(); toast('⛏ ' + (d+1) + '층까지 파 내려갔습니다'); renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+
+/* ── 안전 설비 */
+function openSafety(m){
+  const lv = m.safety || 0;
+  if(lv >= SAFETY_MAX) return toast('안전 설비가 이미 최고 단계입니다');
+  const cost = safetyCost(m);
+  const after = {...m, safety: lv + 1};
+  openModal('<h2>🦺 안전 설비</h2>' +
+    '<div class="kv"><span>지금</span><b>' + lv + '단계 · 붕괴 위험 ' + (collapseRisk(m)*100).toFixed(1) + '%</b></div>' +
+    '<div class="kv"><span>보강 뒤</span><b class="up">' + (lv+1) + '단계 · 붕괴 위험 ' + (collapseRisk(after)*100).toFixed(1) + '%</b></div>' +
+    '<div class="kv"><span>비용</span><b>' + fmtW(cost) + '</b></div>' +
+    '<button class="big-btn" id="safeGo"' + (G.cash < cost ? ' disabled' : '') + '>' + fmtW(cost) + ' 내고 보강</button>' +
+    '<div class="warnbox" style="margin-top:12px">한 단계마다 붕괴 위험이 16%씩 줄어듭니다. 깊이 팔 생각이면 먼저 보강하세요.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  $('safeGo').onclick = async ()=>{
+    if(G.cash < cost) return toast('현금이 부족합니다');
+    try{
+      const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{safety:lv+1}});
+      if(!r.ok) return toast(r.err || '실패');
+      G.cash -= cost; saveGame(true); renderAll();
+      closeModal(); toast('🦺 안전 설비 ' + (lv+1) + '단계'); renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+
+/* ── 광부 고용 (NPC + 실제 유저) */
+function openMiners(m){
+  const hire = npcHire(m), pay = npcPay(m);
+  openModal('<h2>👷 광부</h2>' +
+    '<p style="color:var(--sub);font-size:12.5px;line-height:1.8;margin:8px 0 12px">' +
+    'NPC 광부는 바로 들어오지만 한 사람 몫만 합니다.<br>' +
+    '<b style="color:var(--mint)">실제 유저</b>는 곡괭이질을 하면 <b>NPC 셋 몫</b>, 손 놓으면 절반 몫입니다.</p>' +
+    '<div class="kv"><span>지금 광부</span><b>NPC ' + (m.npc||0) + '명 · 유저 ' + myMiners(m.id).length + '명</b></div>' +
+    '<div class="kv"><span>NPC 고용비</span><b>' + fmtW(hire) + ' / 1인</b></div>' +
+    '<div class="kv"><span>NPC 임금</span><b class="warn-red">' + fmtW(pay) + ' / 1인 / 3분</b></div>' +
+    '<div class="mgacts" style="margin:12px 0"><button class="go" id="mnAdd">＋ NPC 1명</button>' +
+    '<button id="mnDel"' + ((m.npc||0)<1?' disabled':'') + '>－ NPC 1명</button></div>' +
+    '<h3 style="font-size:13.5px;margin:16px 0 6px">유저 광부 채용</h3>' +
+    '<div id="minePick" style="max-height:150px;overflow:auto;background:#0a1020;border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:9px">불러오는 중…</div>' +
+    '<input class="auth-in" id="mineHireId" maxlength="12" placeholder="아이디 직접 입력도 가능" autocomplete="off" aria-label="채용할 아이디">' +
+    '<input class="auth-in" id="mineHireW" type="number" min="100" step="1000" value="' + Math.max(100, pay*2) + '" aria-label="제시 급여">' +
+    '<button class="big-btn" id="mineHireGo">제안 보내기</button>' +
+    '<div class="warnbox" style="margin-top:12px">유저 광부는 광구당 10명까지입니다. 급여는 3분마다 자동으로 나갑니다.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  const setNpc = async n=>{
+    const add = n - (m.npc||0);
+    const cost = add > 0 ? add * hire : 0;
+    if(cost > G.cash) return toast('현금이 부족합니다');
+    try{
+      const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{npc:n}});
+      if(!r.ok) return toast(r.err || '실패');
+      if(cost){ G.cash -= cost; saveGame(true); renderAll(); }
+      closeModal(); toast('광부가 ' + n + '명이 되었습니다'); renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+  $('mnAdd').onclick = ()=>setNpc((m.npc||0) + 1);
+  $('mnDel').onclick = ()=>setNpc(Math.max(0, (m.npc||0) - 1));
+  fillHirePick('minePick', 'mineHireId');
+  $('mineHireGo').onclick = async ()=>{
+    const who = ($('mineHireId').value||'').trim();
+    const wage = Math.floor(Number($('mineHireW').value)||0);
+    if(!who) return toast('아이디를 넣어주세요');
+    if(wage < 100) return toast('급여는 100원 이상이어야 합니다');
+    try{
+      const r = await rpc('app_job_offer', {p_user:AUTH.name, p_token:SRV_TOKEN, p_land:m.id, p_worker:who, p_wage:wage});
+      if(!r.ok) return toast(r.err || '실패');
+      closeModal();
+      toast(r.pending_login ? ('📩 ' + r.worker + ' 님께 제안을 예약했습니다') : ('📩 ' + r.worker + ' 님께 제안을 보냈습니다'));
+      await loadJobs(); renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+
+/* ── 광물 팔기 */
+function openShip(m){
+  const stock = Math.floor(Number(m.stock||0)), px = orePrice(m), pct = orePct(m);
+  if(!stock) return toast('창고가 비었습니다');
+  openModal('<h2>📦 광물 팔기</h2>' +
+    '<div class="kv"><span>창고</span><b>' + m.ore_ico + ' ' + stock.toLocaleString() + '개</b></div>' +
+    '<div class="kv"><span>지금 시세</span><b class="' + clsOf(pct) + '">' + Number(px).toLocaleString() + '원 (' + sign(pct) + '%)</b></div>' +
+    '<input class="auth-in" id="shipQty" type="number" min="1" max="' + stock + '" value="' + stock + '" aria-label="팔 수량">' +
+    '<div class="kv"><span>받을 돈</span><b id="shipSum">' + fmtW(stock * px) + '</b></div>' +
+    '<button class="big-btn" id="shipGo">이 값에 팔기</button>' +
+    '<div class="warnbox" style="margin-top:12px">시세는 20초마다 움직입니다. 기준가보다 높을 때 파는 게 이득입니다.<br>창고가 꽉 차면 더 캐도 버려지니 미리 비우세요.</div>' +
+    '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
+  const inp = $('shipQty');
+  inp.oninput = ()=>{
+    const q = Math.max(0, Math.min(stock, Math.floor(Number(inp.value)||0)));
+    $('shipSum').textContent = fmtW(q * px);
+  };
+  $('shipGo').onclick = async ()=>{
+    const q = Math.max(0, Math.min(stock, Math.floor(Number(inp.value)||0)));
+    if(!q) return toast('수량을 넣어주세요');
+    try{
+      const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{stock:stock-q}});
+      if(!r.ok) return toast(r.err || '실패');
+      G.cash += q * px; saveGame(true); renderAll();
+      closeModal(); toast('📦 ' + esc(m.ore) + ' ' + q.toLocaleString() + '개를 ' + fmtW(q*px) + '에 팔았습니다');
+      renderMine();
+    }catch(e){ toast('실패: ' + e.message); }
+  };
+}
+
+/* ── 3분 정산: 캐고, 임금 주고, 가끔 무너집니다 */
+async function collectMines(){
+  if(!G || !myLc() || !isUnlocked('mine') || !(srvMode && SRV_TOKEN)) return;
+  await loadMines();
+  const list = myMines();
+  if(!list.length) return;
+  let pay = 0; const lines = [];
+  for(const m of list){
+    const last = m.paid_at ? new Date(m.paid_at).getTime() : 0;
+    const n = last ? Math.min(20, Math.floor((Date.now() - last) / MINE_SLOT_MS)) : 1;
+    if(n < 1) continue;
+    if(mineDown(m)){                                   // 멈춰 있어도 시계는 흘려보냅니다
+      try{ await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{paid:1}}); }catch(e){}
+      continue;
+    }
+
+    let stock = Math.floor(Number(m.stock||0));
+    const cap = storeCap(m);
+    let dug = 0, boom = false;
+    const slot0 = Math.floor(Date.now() / MINE_SLOT_MS) - n;
+    for(let i = 0; i < n; i++){
+      // 붕괴 판정 — (광구, 정산 회차) 시드라서 누가 계산해도 같습니다
+      const r = mulberry32(((hashStr(m.id) * 0x9E3779B1) ^ ((slot0 + i) * 0xC2B2AE35)) >>> 0);
+      if(r() < collapseRisk(m)){ boom = true; break; }
+      const got = mineYield(m);
+      dug += Math.min(got, Math.max(0, cap - stock));
+      stock = Math.min(cap, stock + got);
+    }
+    const wage = mineWage(m) * (boom ? 1 : n);
+    pay += wage;
+
+    const patch = {stock, paid:1};
+    if(boom){
+      const lost = stock;
+      patch.stock = 0;
+      patch.npc = Math.floor((m.npc||0) / 2);
+      patch.collapsed = new Date(Date.now() + 900000).toISOString();   // 15분 정지
+      lines.push('💥 ' + (m.name) + ' 붕괴 — 광물 ' + lost.toLocaleString() + '개와 광부 ' +
+                 ((m.npc||0) - patch.npc) + '명을 잃었습니다');
+    }else if(dug){
+      lines.push(m.ore_ico + ' ' + m.ore + ' ' + dug.toLocaleString() + '개');
+    }
+    try{ await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:patch}); }catch(e){ continue; }
+
+    // 유저 광부 급여는 실제로 보냅니다
+    for(const j of myMiners(m.id)){
+      const w = Math.floor(Number(j.wage)||0) * (boom ? 1 : n);
+      if(w > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (광부 임금)', to_lc:j.worker_name.toLowerCase(), amount:w}); }catch(e){} }
+    }
+  }
+  if(pay > 0){ G.cash = Math.max(0, G.cash - pay); saveGame(true); renderAll(); }
+  if(lines.length) toast(lines.slice(0,2).join(' · ') + (pay ? ' · 임금 ' + fmtW(pay) : ''));
+  renderMine();
+}
+function startMinePoll(){
+  if(mineTimer) clearInterval(mineTimer);
+  mineTimer = setInterval(collectMines, 60000);
+  setInterval(()=>{                                   // 시세판은 20초마다 따로 갱신
+    const tab = $('tab-mine');
+    if(tab && tab.classList.contains('on') && !$('modal').classList.contains('on')){
+      renderOreBoard(); renderMineMgmt();
+    }
+  }, 20000);
+}
 
 /* ==================== 유저 (검색 / 친구 / 귓속말 / 송금) ====================
    아이디와 비밀번호는 서버에 올리지 않습니다. 계정은 브라우저 안에만 있고,
@@ -3089,6 +3568,16 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.8', date:'2026-09-22', title:'광산 — 광부를 고용해 캡니다',
+    items:[
+      ['new','⛏️ 광산 탭이 열렸습니다. 해금 2,000만원, 전국 6개 광구뿐입니다'],
+      ['new','광부를 고용하면 3분마다 광물이 창고에 쌓입니다. NPC도 뽑고 실제 유저도 광부로 채용할 수 있습니다'],
+      ['new','유저 광부가 곡괭이질(업무)을 하면 NPC 셋 몫, 손 놓으면 절반 몫만 합니다'],
+      ['new','광물 시세는 20초마다 움직입니다. 기준가보다 오를 때 팔아야 남습니다'],
+      ['new','갱도를 파 내려가면 산출이 45%씩 늘지만 붕괴 위험도 같이 오릅니다. 최대 10층입니다'],
+      ['new','붕괴가 나면 창고 광물 전부와 광부 절반을 잃고 15분간 멈춥니다. 안전 설비로 위험을 낮추세요'],
+      ['chg','상단 탭이 🏞️ 자산으로 묶여 부동산과 광산이 함께 들어갔습니다'],
+    ]},
   { v:'2.7', date:'2026-09-22', title:'부동산 전체 재분양',
     items:[
       ['del','모든 땅의 소유권과 건물을 되돌렸습니다. 회사도 함께 사라지고 직원 계약도 모두 종료됩니다'],
@@ -3828,6 +4317,8 @@ const UNLOCKS = {
             desc:'슬롯머신과 홀짝 게임이 열립니다. 하우스가 유리하니 여윳돈으로만 하세요.' },
   land:   { tab:'land',   cost:50000, nm:'🏞️ 부동산',
             desc:'전국 10필지를 사고팔 수 있습니다. 땅은 계정에 귀속되어 새 판을 시작해도 그대로 남습니다.' },
+  mine:   { tab:'mine',   cost:20000000, nm:'⛏️ 광산',
+            desc:'전국 6개 광구를 사고팔 수 있습니다. 광부를 고용해 광물을 캐고 시세가 오를 때 팝니다.<br>갱도를 파 내려갈수록 많이 캐지만, 붕괴 사고가 나면 광부와 창고를 한꺼번에 잃습니다.' },
 };
 /* 해금은 계정 단위로 한 번만 하면 영구히 유지됩니다. */
 const ACCT_KEY = ()=> 'MONEYROAD_ACCT:' + (AUTH ? (AUTH.mode==='user' ? 'u_'+AUTH.id : 'guest') : 'guest');
@@ -3900,7 +4391,7 @@ function askUnlock(key){
    상위 탭으로 묶고, 그 안에서 세부 탭을 고릅니다. */
 const TAB_GROUPS = [
   { key:'stock', nm:'📈 주식',       tabs:[['kr','🇰🇷 국내주식'], ['us','🌎 해외주식']] },
-  { key:'land',  nm:'🏞️ 부동산',     tabs:[['land','🏞️ 부동산']] },
+  { key:'land',  nm:'🏞️ 자산',     tabs:[['land','🏞️ 부동산'], ['mine','⛏️ 광산']] },
   { key:'econ',  nm:'💰 경제',       tabs:[['bank','🏦 은행/대출'], ['casino','🎰 카지노'], ['news','📰 뉴스']] },
   { key:'my',    nm:'👤 마이페이지',  tabs:[['users','👥 유저'], ['community','💬 커뮤니티'], ['rank','🏆 랭킹'], ['pf','💼 내 포트폴리오']] },
   { key:'info',  nm:'📋 패치노트',    tabs:[['patch','📋 패치노트']] },
@@ -3935,6 +4426,7 @@ function switchTab(t){
   if(t==='community'){ lastChatSig=''; renderChat(true); }
   if(t==='rank') renderRank();
   if(t==='land') renderLand();
+  if(t==='mine') renderMine();
   if(t==='users') renderUsers();
   if(t==='patch'){ renderPatch(); const v=$('patchVer'); if(v) v.textContent='현재 v'+APP_VERSION; }
 }

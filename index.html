@@ -2505,10 +2505,12 @@ function openHire(l){
     '<div class="mgacts" style="margin:12px 0"><button class="go" id="npcAdd">＋ NPC 1명</button>' +
     '<button id="npcDel"' + ((l.bld_emp||0)<1?' disabled':'') + '>－ NPC 1명</button></div>' +
     '<h3 style="font-size:13.5px;margin:16px 0 6px">유저 채용 제안</h3>' +
-    '<input class="auth-in" id="hireId" maxlength="12" placeholder="상대 아이디" autocomplete="off" aria-label="채용할 아이디">' +
+    '<div id="hirePick" style="max-height:150px;overflow:auto;background:#0a1020;border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:9px">불러오는 중…</div>' +
+    '<input class="auth-in" id="hireId" maxlength="12" placeholder="아이디 직접 입력도 가능" autocomplete="off" aria-label="채용할 아이디">' +
     '<input class="auth-in" id="hireW" type="number" min="100" step="100" value="' + Math.max(100, w*2) + '" aria-label="제시 급여">' +
     '<button class="big-btn" id="hireGo">제안 보내기</button>' +
-    '<div class="warnbox" style="margin-top:12px">급여는 3분마다 자동으로 지급됩니다. 유저 직원은 회사당 5명까지입니다.</div>' +
+    '<div class="warnbox" style="margin-top:12px">급여는 3분마다 자동으로 지급됩니다. 유저 직원은 회사당 5명까지입니다.<br>' +
+    '목록에 없는 사람은 <b>업데이트 이후 아직 로그인하지 않은 상태</b>입니다. 그래도 제안은 보낼 수 있고, 그분이 접속하면 확인합니다.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
   const setEmp = async n=>{
     try{
@@ -2517,6 +2519,17 @@ function openHire(l){
       closeModal(); toast('직원 ' + n + '명이 되었습니다'); refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
   };
+  (async ()=>{                                  // 서버 계정이 있는 사람만 바로 채용할 수 있다
+    const box = $('hirePick'); if(!box) return;
+    try{
+      const rows = await rpc('app_hireable', {p_q:''});
+      const list = rows.filter(r=>r.username !== AUTH.name);
+      box.innerHTML = list.length
+        ? list.map(r=>'<button class="mini-btn" style="margin:3px" data-pick="' + esc(r.username) + '">' + esc(r.username) + '</button>').join('')
+        : '<div style="font-size:11.5px;color:var(--sub);padding:6px">지금 바로 채용할 수 있는 사람이 없습니다.</div>';
+      box.querySelectorAll('[data-pick]').forEach(b2=>b2.onclick=()=>{ $('hireId').value = b2.dataset.pick; });
+    }catch(e){ box.innerHTML = '<div style="font-size:11.5px;color:var(--sub);padding:6px">목록을 불러오지 못했습니다.</div>'; }
+  })();
   $('npcAdd').onclick = ()=>setEmp(Math.min(20, (l.bld_emp||0)+1));
   $('npcDel').onclick = ()=>setEmp(Math.max(0, (l.bld_emp||0)-1));
   $('hireGo').onclick = async ()=>{
@@ -2526,7 +2539,10 @@ function openHire(l){
     try{
       const r = await rpc('app_job_offer', {p_user:AUTH.name, p_token:SRV_TOKEN, p_land:l.id, p_worker:id, p_wage:wage});
       if(!r.ok) return toast(r.err || '실패');
-      closeModal(); toast('📩 ' + r.worker + ' 님에게 제안을 보냈습니다');
+      closeModal();
+      toast(r.pending_login
+        ? ('📩 ' + r.worker + ' 님에게 제안을 보냈습니다 — 그분이 다시 로그인하면 확인할 수 있습니다')
+        : ('📩 ' + r.worker + ' 님에게 제안을 보냈습니다'));
       await loadJobs(); refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
   };
@@ -2959,6 +2975,7 @@ const PATCH_NOTES = [
       ['new','회사를 세우면 국내주식에 그 이름과 업종으로 종목이 올라갑니다'],
       ['new','다른 사람이 세운 회사의 주식을 사고팔 수 있습니다. 카드에 대표 이름이 표시됩니다'],
       ['chg','주가는 회사의 건물 가치 · 수익 · 업종 기세에서 계산되어 모든 접속자가 같은 값을 봅니다'],
+      ['fix','직원 채용에서 아이디를 넣어도 안 되던 문제. 바로 채용할 수 있는 사람 목록을 띄우고, 아직 로그인 전인 사람에게도 제안을 예약할 수 있게 했습니다'],
     ]},
   { v:'2.4', date:'2026-09-22', title:'건물 경영 — 난이도 3단계',
     items:[

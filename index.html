@@ -1520,6 +1520,10 @@ function accountStats(){
     Object.values(g.holdings||{}).forEach(h=>{ sh += (h.qty||0); });
   });
   if(G){ const v = netWorthOf(G); if(v > nw) nw = v; }
+  // 땅은 계정 자산이므로 슬롯 순자산에 한 번만 더한다
+  if(typeof myLands === 'function'){
+    nw += myLands().reduce((a,l)=>a + Number(l.base_price||0), 0);
+  }
   return { nw: Math.round(nw), sh };
 }
 function sbHeaders(extra){

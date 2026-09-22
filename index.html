@@ -919,6 +919,12 @@ function saveSlots(a){
 }
 function saveGame(silent){
   if(!G) return;
+  // 어떤 경로로든 숫자가 망가지면 세이브가 통째로 오염되므로 여기서 막는다
+  if(!Number.isFinite(G.cash) || !Number.isFinite(G.debt)){
+    G.cash = Number.isFinite(G.cash) ? G.cash : 0;
+    G.debt = Number.isFinite(G.debt) ? G.debt : 0;
+    toast('⚠️ 잘못된 금액이 감지되어 보정했습니다');
+  }
   const slots = loadSlots();
   const snap = Object.assign({}, G);
   snap.stocks = []; snap.news = [];       // 시세와 속보는 공유 시장에서 계산되므로 저장하지 않는다
@@ -2833,7 +2839,8 @@ function checkMargin(){
   }
 }
 function takeLoan(amt){
-  amt = Math.floor(amt);
+  amt = Math.floor(Number(amt));
+  if(!Number.isFinite(amt)) return toast('금액을 확인해주세요');
   if(amt < 1000) return toast('최소 대출은 1,000원입니다');
   const av = loanAvail();
   if(amt > av) return toast(`대출 한도를 넘었습니다 (가능 ${Math.round(av).toLocaleString()}원)`);
@@ -2843,7 +2850,8 @@ function takeLoan(amt){
   saveGame(true); renderAll();
 }
 function repayLoan(amt){
-  amt = Math.floor(amt);
+  amt = Math.floor(Number(amt));
+  if(!Number.isFinite(amt)) return toast('금액을 확인해주세요');
   if(G.debt <= 0) return toast('갚을 빚이 없습니다');
   if(amt < 1) return;
   const pay = Math.min(amt, G.debt, G.cash);
@@ -3207,6 +3215,11 @@ function drawStockChart(s){
 }
 function doTrade(s, kind){
   if(s.dead) return toast('상장폐지된 종목입니다');
+  // 수량은 여기서 확정한다. 음수·소수·NaN이 들어오면 현금과 보유수량이 망가진다.
+  const q = Math.floor(Number(tradeQty));
+  if(!Number.isFinite(q) || q < 1) return toast('수량은 1주 이상이어야 합니다');
+  if(q > 1e9) return toast('수량이 너무 많습니다');
+  tradeQty = q;
   // 탭이 잠겨 있어도 보유 종목 화면 등으로 매매창에 닿을 수 있으므로 여기서도 막는다.
   // 파는 것은 언제나 허용한다 — 열려 있을 때 산 주식이 갇히면 안 된다.
   if(kind==='buy' && s.mkt==='US' && !isUnlocked('us')) return askUnlock('us');

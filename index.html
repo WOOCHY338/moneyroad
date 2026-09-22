@@ -3388,6 +3388,8 @@ $('doRepay').onclick = ()=>repayLoan(Number($('repayAmt').value)||0);
 let brokeHinted = false;
 function checkBroke(){
   if(!G) return;
+  // 카지노 연출이 끝나면 들어올 당첨금이 있으면 아직 파산이 아니다
+  if(G.pend && Number(G.pend.win) > 0) return;
   const noStock = Object.values(G.holdings).every(h=>!h.qty);
   if(!noStock){ brokeHinted = false; return; }
   if(G.cash >= 1000){ brokeHinted = false; return; }

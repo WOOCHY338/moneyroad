@@ -144,9 +144,11 @@ input{font-family:inherit}
 
 /* ===== 부동산 미니맵 ===== */
 .mapwrap{background:#0a1020;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:14px}
-#landMap svg{display:block;width:100%;height:auto;max-height:460px;margin:0 auto}
+#landMap svg{display:block;width:100%;height:auto;max-height:420px;margin:0 auto}
 .mp-land{fill:#16213a;stroke:#2a3c5c;stroke-width:1.2}
 .mp-line{stroke:#3a4c6c;stroke-width:1;stroke-dasharray:2 2}
+.mp-sea{fill:none;stroke:#16213a;stroke-width:27;stroke-linecap:round;stroke-linejoin:round}
+.mp-flag{font-size:12px;font-weight:800;fill:#5b6b8c;text-anchor:middle}
 .mp-pin{cursor:pointer}
 .mp-pin circle{stroke:#0a1020;stroke-width:2;transition:r .12s}
 .mp-pin:hover circle{r:11}
@@ -674,7 +676,7 @@ tr:last-child td{border-bottom:none}
       <div class="panel">
         <h3>🏞️ 부동산 <small id="landMode">-</small></h3>
         <div class="warnbox" id="landNote" style="margin:0 0 12px">
-          전국 10필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>
+          한국 10필지 · 일본 8필지, 모두 18필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>
           <b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.
         </div>
         <div class="mapwrap"><div id="landMap"></div></div>
@@ -1783,9 +1785,10 @@ function minerPower(m){
   const real = myMiners(m.id).reduce((a, j) => a + (onShift(j) ? 3 : 0.5), 0);
   return (m.npc || 0) + real;
 }
+const ORE_BOOST = 3;                       // 건물 수익과 보조를 맞추는 산출 배율
 function mineYield(m){                                                  // 3분에 캐는 양
   if(mineDown(m)) return 0;
-  return Math.floor(minerPower(m) * depthMult(m) * Number(m.rate));
+  return Math.floor(minerPower(m) * depthMult(m) * Number(m.rate) * ORE_BOOST);
 }
 function mineWage(m){
   const npc = (m.npc || 0) * npcPay(m);
@@ -2264,18 +2267,29 @@ function userRow(u){
    대한민국 윤곽 위에 10필지를 실제 위치대로 찍습니다.
    서울에 5필지가 몰려 있어 부챗살로 펼치고 연결선을 그립니다. */
 const MAP_POS = {
+  /* 한국 */
   L02:{x:104,y:70, lbl:'명동'},   L05:{x:146,y:80, lbl:'성수'},
   L06:{x:68, y:84, lbl:'홍대'},   L01:{x:126,y:110,lbl:'강남'},
   L03:{x:62, y:116,lbl:'여의도'}, L04:{x:104,y:142,lbl:'판교'},
   L10:{x:234,y:96, lbl:'강릉'},   L09:{x:238,y:212,lbl:'경주'},
   L07:{x:226,y:252,lbl:'해운대'}, L08:{x:96, y:344,lbl:'제주'},
+  /* 일본 */
+  J02:{x:432,y:156,lbl:'신주쿠'}, J01:{x:462,y:164,lbl:'긴자'},
+  J03:{x:424,y:184,lbl:'시부야'}, J04:{x:462,y:196,lbl:'요코하마'},
+  J06:{x:402,y:232,lbl:'교토'},   J05:{x:382,y:256,lbl:'도톤보리'},
+  J07:{x:322,y:322,lbl:'텐진'},   J08:{x:512,y:90, lbl:'스스키노'},
 };
 const SEOUL_HUB = {x:104, y:96};
+const TOKYO_HUB = {x:444, y:176};
+const SEOUL_IDS = ['L01','L02','L03','L05','L06'];
+const TOKYO_IDS = ['J01','J02','J03','J04'];
 const KOREA_PATH = 'M150,20 C166,16 180,24 192,34 L210,42 L228,56 L242,74 L250,94 '
   + 'L244,110 L252,126 L260,146 L258,168 L264,188 L254,210 L244,232 L234,250 '
   + 'L222,266 L206,276 L190,282 L174,276 L158,282 L142,274 L126,280 L112,268 '
   + 'L100,252 L90,234 L84,214 L90,194 L80,176 L72,154 L78,134 L68,114 '
   + 'L74,94 L86,72 L102,52 L124,32 Z';
+/* 일본은 열도라서 굵은 선으로 섬 모양만 잡아 줍니다 */
+const HONSHU_PATH = 'M336,304 L362,278 L390,248 L416,214 L442,182 L466,152 L486,128';
 
 function landMapSVG(){
   const me = myLc();
@@ -2283,9 +2297,10 @@ function landMapSVG(){
     const pos = MAP_POS[l.id]; if(!pos) return '';
     const mine = !!me && l.owner_lc === me;
     const color = mine ? '#22e6b4' : (l.for_sale ? '#ffc93c' : '#5b6b8c');
-    const inSeoul = ['L01','L02','L03','L05','L06'].includes(l.id);
-    const line = inSeoul
-      ? '<line class="mp-line" x1="' + SEOUL_HUB.x + '" y1="' + SEOUL_HUB.y + '" x2="' + pos.x + '" y2="' + pos.y + '"/>'
+    const hub = SEOUL_IDS.includes(l.id) ? SEOUL_HUB
+              : TOKYO_IDS.includes(l.id) ? TOKYO_HUB : null;
+    const line = hub
+      ? '<line class="mp-line" x1="' + hub.x + '" y1="' + hub.y + '" x2="' + pos.x + '" y2="' + pos.y + '"/>'
       : '';
     const bld = (l.bld_level > 0 && BLD[l.bld_type]) ? BLD[l.bld_type].nm.slice(0,2) : '';
     return line +
@@ -2295,11 +2310,19 @@ function landMapSVG(){
       '<text x="' + pos.x + '" y="' + (pos.y+3.2) + '">' + (bld || l.id.slice(1)) + '</text>' +
       '<text class="mp-name" x="' + pos.x + '" y="' + (pos.y-13) + '">' + esc(pos.lbl) + '</text></g>';
   }).join('');
-  return '<svg viewBox="0 0 300 400" role="img" aria-label="전국 부동산 지도">' +
+  const hubDot = (h, nm)=>
+    '<circle cx="' + h.x + '" cy="' + h.y + '" r="3" fill="#3a4c6c"/>' +
+    '<text class="mp-name" x="' + h.x + '" y="' + (h.y+14) + '" style="fill:#5b6b8c">' + nm + '</text>';
+  return '<svg viewBox="0 0 560 400" role="img" aria-label="한국·일본 부동산 지도">' +
     '<path class="mp-land" d="' + KOREA_PATH + '"/>' +
     '<ellipse class="mp-land" cx="96" cy="344" rx="28" ry="15"/>' +
-    '<circle cx="' + SEOUL_HUB.x + '" cy="' + SEOUL_HUB.y + '" r="3" fill="#3a4c6c"/>' +
-    '<text class="mp-name" x="' + SEOUL_HUB.x + '" y="' + (SEOUL_HUB.y+14) + '" style="fill:#5b6b8c">서울</text>' +
+    '<path class="mp-sea" d="' + HONSHU_PATH + '"/>' +
+    '<ellipse class="mp-land" cx="324" cy="326" rx="21" ry="27"/>' +
+    '<ellipse class="mp-land" cx="372" cy="302" rx="17" ry="10"/>' +
+    '<ellipse class="mp-land" cx="512" cy="94" rx="31" ry="27"/>' +
+    '<text class="mp-flag" x="150" y="374">🇰🇷 한국</text>' +
+    '<text class="mp-flag" x="430" y="330">🇯🇵 일본</text>' +
+    hubDot(SEOUL_HUB, '서울') + hubDot(TOKYO_HUB, '도쿄') +
     pins + '</svg>' +
     '<div class="mp-legend"><span><i style="background:#22e6b4"></i>내 땅</span>' +
     '<span><i style="background:#ffc93c"></i>매물</span>' +
@@ -2533,13 +2556,16 @@ const RENT_PER_SESSION = 0.010;      // 빈 땅은 장(30분)마다 기준가의
 const TICK_MS_BLD = 180000;                  // 3분
 const MAX_CATCHUP = 20;                      // 자리를 비워도 최대 1시간치까지만 정산
 const BLD = {
-  apt:  { nm:'🏬 아파트', cost:0.60, yield:0.0040, desc:'손 안 대도 3분마다 임대료가 들어옵니다. 가장 쉽습니다.' },
-  shop: { nm:'🏪 가게',   cost:0.35, yield:0.0030, desc:'재고를 발주해야 팔립니다. 재고가 떨어지면 매출이 멈춥니다.' },
-  corp: { nm:'🏢 회사',   cost:1.00, yield:0.0055, desc:'직원을 뽑고 신제품을 개발합니다. 인건비가 커지면 적자가 납니다.' },
+  apt:  { nm:'🏬 아파트', cost:0.60, yield:0.0120, desc:'손 안 대도 3분마다 임대료가 들어옵니다. 가장 쉽습니다.' },
+  shop: { nm:'🏪 가게',   cost:0.35, yield:0.0090, desc:'재고를 발주해야 팔립니다. 재고가 떨어지면 매출이 멈춥니다.' },
+  corp: { nm:'🏢 회사',   cost:1.00, yield:0.0160, desc:'직원을 뽑고 신제품을 개발합니다. 인건비가 커지면 적자가 납니다.' },
 };
-const LV_MULT = [0, 1, 1.4, 1.9, 2.5, 3.2];
+const LV_MULT = [0, 1, 1.5, 2.1, 2.8, 3.6];
 function bldCost(l, type){ return Math.round(Number(l.base_price) * BLD[type].cost); }
-function upCost(l){ return Math.round(bldCost(l, l.bld_type) * 0.8 * (l.bld_level || 1)); }
+function upCost(l){
+  const floor = Number(l.base_price) * 0.40 * (l.bld_level || 1);
+  return Math.round(Math.max(floor, Math.max(0, bldIncome(l)) * 30));
+}
 function bldSectors(){ return [...new Set(STOCK_DEF.map(d=>d.sec))]; }
 function bldTitle(l){ return l.bld_name || (BLD[l.bld_type] ? BLD[l.bld_type].nm : ''); }
 
@@ -2548,11 +2574,14 @@ function unitCostOf(l){ return Math.max(1, Math.round(Number(l.base_price) * 0.0
 function unitPriceOf(l){ return Math.round(unitCostOf(l) * 2.4); }                          // 개당 판매가
 function demandOf(l){                                                                       // 3분당 수요
   const ev = eventAt(Date.now());
-  return Math.max(1, Math.round(Number(l.base_price) * 0.0000036 * (LV_MULT[l.bld_level]||1) * (ev?ev.boost:1)));
+  return Math.max(1, Math.round(Number(l.base_price) * 0.0000108 * (LV_MULT[l.bld_level]||1) * (ev?ev.boost:1)));
 }
 /* 회사 */
-function npcWage(l){ return Math.round(Number(l.base_price) * 0.00040); }                    // 직원 1인당 3분 인건비
-function rndGoal(l){ return Math.round(Number(l.base_price) * 0.15 * (l.bld_plv||1)); }
+function npcWage(l){ return Math.round(Number(l.base_price) * 0.00022); }                    // 직원 1인당 3분 인건비
+function rndGoal(l){
+  const floor = Number(l.base_price) * 0.08 * (l.bld_plv || 1);
+  return Math.round(Math.max(floor, Math.max(0, bldIncome(l)) * 25));
+}
 function myStaff(landId){ return JOBS.filter(j=>j.land_id===landId && j.status==='active' && j.role==='boss'); }
 /* 직원은 3분마다 업무를 처리해야 제 몫을 합니다.
    최근에 일한 직원은 +8%, 손 놓은 직원은 +1.5%뿐이면서 급여는 그대로 나갑니다. */
@@ -2566,7 +2595,7 @@ function onShift(j){
   return !!(j && j.worked_at) && (Date.now() - new Date(j.worked_at).getTime()) < SHIFT_KEEP;
 }
 function staffBonus(l){
-  const npc = (l.bld_emp||0) * 0.02;
+  const npc = (l.bld_emp||0) * 0.04;
   const real = myStaff(l.id).reduce((a,j)=> a + (onShift(j) ? 0.08 : 0.015), 0);
   return npc + real;
 }
@@ -2598,9 +2627,9 @@ function bldIncome(l){
     return Math.round(sold * (unitPriceOf(l) - unitCostOf(l)));
   }
   const mom = sectorMomentum(l.bld_sector || '반도체');
-  const plvMult = 1 + ((l.bld_plv||1) - 1) * 0.25;
+  const plvMult = 1 + ((l.bld_plv||1) - 1) * 0.40;
   // 업종이 아무리 나빠도 매출이 음수가 되지는 않는다. 적자는 인건비에서 나온다.
-  const rev = base * plvMult * (1 + staffBonus(l)) * Math.max(0.15, 0.55 + mom * 1.6);
+  const rev = base * plvMult * (1 + staffBonus(l)) * Math.max(0.35, 1 + mom * 0.8);
   return Math.round(rev - wageBill(l));
 }
 /* 이번 정산에서 팔릴 재고 수 */
@@ -2701,7 +2730,7 @@ async function renderLand(){
   const note = $('landNote');
   if(note){
     note.innerHTML = landOpen()
-      ? '전국 10필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>' +
+      ? '한국 10필지 · 일본 8필지, 모두 18필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>' +
         '<b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.'
       : '🏗️ <b>전체 재분양</b> — 땅과 건물을 모두 되돌리고, 쓰신 돈은 전액 돌려드렸습니다.<br>' +
         '<b style="color:var(--gold)">오늘 오후 2시 30분</b>부터 다시 사실 수 있습니다 · 남은 시간 ' +
@@ -3044,7 +3073,7 @@ function openOrder(l){
 function openRnd(l){
   const goal = rndGoal(l), cur = Number(l.bld_rnd||0);
   openModal('<h2>🔬 신제품 개발</h2>' +
-    '<div class="kv"><span>현재 제품</span><b>Lv' + (l.bld_plv||1) + ' (매출 ×' + (1+((l.bld_plv||1)-1)*0.25).toFixed(2) + ')</b></div>' +
+    '<div class="kv"><span>현재 제품</span><b>Lv' + (l.bld_plv||1) + ' (매출 ×' + (1+((l.bld_plv||1)-1)*0.40).toFixed(2) + ')</b></div>' +
     '<div class="kv"><span>진행도</span><b>' + fmtW(cur) + ' / ' + fmtW(goal) + '</b></div>' +
     '<div class="bar"><i style="width:' + Math.min(100, cur/goal*100) + '%"></i></div>' +
     '<input class="auth-in" id="rndA" type="number" min="1000" step="1000" value="' + Math.max(1000, Math.min(Math.floor(G.cash), goal-cur)) + '" style="margin-top:12px" aria-label="투자 금액">' +
@@ -3073,7 +3102,7 @@ function openHire(l){
   const w = npcWage(l);
   openModal('<h2>👔 직원 채용</h2>' +
     '<p style="color:var(--sub);font-size:12.5px;line-height:1.8;margin:8px 0 12px">' +
-    'NPC 직원은 바로 뽑히지만 생산성이 낮습니다(1인 +2%).<br>' +
+    'NPC 직원은 바로 뽑히지만 생산성이 낮습니다(1인 +4%).<br>' +
     '<b style="color:var(--mint)">실제 유저</b>는 제안을 수락해야 하지만 훨씬 생산적입니다(1인 +8%).</p>' +
     '<div class="kv"><span>현재 직원</span><b>NPC ' + (l.bld_emp||0) + '명 · 유저 ' + myStaff(l.id).length + '명</b></div>' +
     '<div class="kv"><span>NPC 인건비</span><b class="warn-red">' + fmtW(w) + ' / 1인 / 3분</b></div>' +
@@ -3568,6 +3597,17 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.9', date:'2026-09-23', title:'일본 진출 · 건물 수익 대폭 상향',
+    items:[
+      ['new','🇯🇵 일본 8필지가 열렸습니다 — 긴자 · 시부야 · 신주쿠 · 도톤보리 · 기온 · 미나토미라이 · 텐진 · 스스키노'],
+      ['new','지도에 일본 열도가 함께 표시됩니다. 도쿄에 몰린 네 곳은 부챗살로 펼쳐 보여줍니다'],
+      ['chg','건물 수익을 3배로 올렸습니다. 넣은 돈에 비해 나오는 게 너무 적다는 지적을 반영했습니다'],
+      ['chg','회수 기간이 약 16시간에서 4~5시간으로 줄었습니다'],
+      ['fix','NPC 직원이 뽑을수록 손해였던 문제 — 인건비를 거의 절반으로 낮추고 생산성을 1인 +2%에서 +4%로 올렸습니다'],
+      ['chg','신제품 개발 효과가 레벨당 +25%에서 +40%로 커졌습니다'],
+      ['chg','증축비와 연구비가 이제 그 건물이 실제로 버는 돈을 기준으로 정해집니다. 어느 단계에서 올려도 회수 기간이 비슷합니다'],
+      ['chg','광산 산출도 같은 비율로 올려 건물과 균형을 맞췄습니다'],
+    ]},
   { v:'2.8', date:'2026-09-22', title:'광산 — 광부를 고용해 캡니다',
     items:[
       ['new','⛏️ 광산 탭이 열렸습니다. 해금 2,000만원, 전국 6개 광구뿐입니다'],

@@ -756,6 +756,17 @@ const STOCK_DEF = [
   {id:'NFLX',name:'넷플릭스',     mkt:'US', sec:'미디어',   ico:'🎬', price:22.80, vol:0.0324, drift:0.000058},
   {id:'DIS', name:'디즈니',       mkt:'US', sec:'미디어',   ico:'🏰', price:7.90,  vol:0.0252, drift:0.000040},
   {id:'KO',  name:'코카콜라',     mkt:'US', sec:'식품',     ico:'🥤', price:5.60,  vol:0.0108, drift:0.000035},
+  /* ── 2.6 신규 상장 — 뒤에 붙여야 기존 종목의 시세 흐름이 바뀌지 않습니다 ── */
+  {id:'PSCO',name:'포스코홀딩스',  mkt:'KR', sec:'철강',     ico:'⚙️', price:4900,  vol:0.0300, drift:0.000045},
+  {id:'KIA', name:'기아',         mkt:'KR', sec:'자동차',   ico:'🏎️', price:5100,  vol:0.0264, drift:0.000052},
+  {id:'KBFG',name:'KB금융',       mkt:'KR', sec:'금융',     ico:'🏦', price:6300,  vol:0.0180, drift:0.000040},
+  {id:'AMRE',name:'아모레퍼시픽', mkt:'KR', sec:'화장품',   ico:'💄', price:2700,  vol:0.0384, drift:0.000055},
+  {id:'DSEN',name:'두산에너빌리티',mkt:'KR', sec:'에너지',  ico:'🏗️', price:2200,  vol:0.0492, drift:0.000085},
+  {id:'AMD', name:'AMD',          mkt:'US', sec:'반도체',   ico:'🔴', price:14.80, vol:0.0432, drift:0.000095},
+  {id:'COST',name:'코스트코',     mkt:'US', sec:'유통',     ico:'🛍️', price:33.60, vol:0.0156, drift:0.000048},
+  {id:'BA',  name:'보잉',         mkt:'US', sec:'항공',     ico:'🛫', price:11.20, vol:0.0372, drift:0.000035},
+  {id:'SBUX',name:'스타벅스',     mkt:'US', sec:'식품',     ico:'☕', price:7.40,  vol:0.0192, drift:0.000038},
+  {id:'PLTR',name:'팔란티어',     mkt:'US', sec:'빅테크',   ico:'🔮', price:12.60, vol:0.0540, drift:0.000100},
 ];
 
 /* ==================== AI 속보 생성기 ==================== */
@@ -1653,10 +1664,10 @@ async function renderRank(){
     $('rankNote').innerHTML = '운영자 패널에서 Supabase를 연결하면 모든 사용자의 랭킹이 집계됩니다.';
     return;
   }
-  $('rankNote').innerHTML = '20초마다 갱신됩니다. 게스트는 랭킹에 포함되지 않습니다.';
+  $('rankNote').innerHTML = '상위 10위까지 보여드립니다. 20초마다 갱신되며 게스트는 집계에서 빠집니다.';
   let rows = [];
   try{
-    const r = await fetch(`${COMM.url}/rest/v1/${PLAYERS_TABLE}?select=id,username,net_worth,shares,play_secs,last_seen&is_guest=eq.false&order=${rankKind}.desc&limit=30`,
+    const r = await fetch(`${COMM.url}/rest/v1/${PLAYERS_TABLE}?select=id,username,net_worth,shares,play_secs,last_seen&is_guest=eq.false&order=${rankKind}.desc&limit=200`,
       {headers: sbHeaders()});
     if(!r.ok) throw new Error('HTTP '+r.status);
     rows = await r.json();
@@ -1667,7 +1678,9 @@ async function renderRank(){
   if(!rows.length){ box.innerHTML = '<div class="empty-msg">아직 집계된 사용자가 없습니다.</div>'; return; }
   const me = playerKey();
   const now = Date.now();
-  box.innerHTML = rows.map((p,i)=>{
+  const myIdx = rows.findIndex(p=>p.id===me);     // 순위는 전체에서 세고, 목록은 10위까지만 보여줍니다
+  const top = rows.slice(0, 10);
+  box.innerHTML = top.map((p,i)=>{
     const live = (now - new Date(p.last_seen).getTime()) < 90000;
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
     const val = rankKind==='net_worth' ? fmtW(p.net_worth)
@@ -1679,6 +1692,19 @@ async function renderRank(){
       <span class="who">${esc(p.username||'-')}</span>
       <span class="val">${val}</span></div>`;
   }).join('');
+  // 내가 10위 밖이면 내 자리만 따로 한 줄 덧붙입니다
+  if(myIdx >= 10){
+    const p = rows[myIdx];
+    const val = rankKind==='net_worth' ? fmtW(p.net_worth)
+              : rankKind==='shares'    ? Number(p.shares||0).toLocaleString()+'주'
+              :                          fmtDur(p.play_secs);
+    box.insertAdjacentHTML('beforeend',
+      `<div style="text-align:center;color:var(--sub);font-size:12px;margin:8px 0 2px">⋯</div>` +
+      `<div class="rrow me"><span class="no">${myIdx+1}</span>` +
+      `<span class="live" title="접속 중"></span>` +
+      `<span class="who">${esc(p.username||'-')}</span>` +
+      `<span class="val">${val}</span></div>`);
+  }
 }
 document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{
   rankKind = b.dataset.rank;
@@ -2049,9 +2075,20 @@ function demandOf(l){                                                           
 function npcWage(l){ return Math.round(Number(l.base_price) * 0.00040); }                    // 직원 1인당 3분 인건비
 function rndGoal(l){ return Math.round(Number(l.base_price) * 0.15 * (l.bld_plv||1)); }
 function myStaff(landId){ return JOBS.filter(j=>j.land_id===landId && j.status==='active' && j.role==='boss'); }
+/* 직원은 3분마다 업무를 처리해야 제 몫을 합니다.
+   최근에 일한 직원은 +8%, 손 놓은 직원은 +1.5%뿐이면서 급여는 그대로 나갑니다. */
+const SHIFT_MS = 180000;
+const SHIFT_KEEP = SHIFT_MS * 2;                 // 6분 안에 일했으면 '근무 중'
+function shiftLeft(j){
+  if(!j || !j.worked_at) return 0;
+  return Math.max(0, SHIFT_MS - (Date.now() - new Date(j.worked_at).getTime()));
+}
+function onShift(j){
+  return !!(j && j.worked_at) && (Date.now() - new Date(j.worked_at).getTime()) < SHIFT_KEEP;
+}
 function staffBonus(l){
   const npc = (l.bld_emp||0) * 0.02;
-  const real = myStaff(l.id).length * 0.08;      // 실제 유저는 4배 생산적이다
+  const real = myStaff(l.id).reduce((a,j)=> a + (onShift(j) ? 0.08 : 0.015), 0);
   return npc + real;
 }
 function wageBill(l){
@@ -2365,7 +2402,9 @@ function mgmtCard(l){
   }
   const staff = (l.bld_type === 'corp' && myStaff(l.id).length)
     ? '<div style="margin-top:9px">' + myStaff(l.id).map(j=>
-        '<div class="staff"><span class="nm">👤 ' + esc(j.worker_name) + '</span>' +
+        '<div class="staff"><span class="nm">' + (onShift(j) ? '🟢' : '💤') + ' ' + esc(j.worker_name) +
+        '<small style="display:block;color:var(--sub);font-weight:600">' +
+        (onShift(j) ? '근무 중' : '자리 비움') + ' · 실적 ' + (j.shifts||0) + '회</small></span>' +
         '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
         '<button data-mg="fire" data-jid="' + j.id + '">해고</button></div>').join('') + '</div>'
     : '';
@@ -2406,17 +2445,29 @@ function renderJobs(){
   if(!asWorker.length) return;
   el.innerHTML = asWorker.map(j=>{
     const pend = j.status === 'pending';
-    return '<div class="staff"><span class="nm">' + (pend?'📩 ':'💼 ') + esc(j.boss_name) + ' 님의 회사</span>' +
+    if(pend){
+      return '<div class="staff"><span class="nm">📩 ' + esc(j.boss_name) + ' 님의 회사' +
+        '<small style="display:block;color:var(--sub);font-weight:600">입사 제안이 왔습니다</small></span>' +
+        '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
+        '<button style="background:#0f2a1f;border-color:#1d4a38;color:var(--mint)" data-job="yes" data-jid="' + j.id + '">수락</button>' +
+        '<button data-job="no" data-jid="' + j.id + '">거절</button></div>';
+    }
+    const left = shiftLeft(j), ready = left <= 0;
+    const mm = Math.floor(left/60000), ss = Math.floor(left%60000/1000);
+    return '<div class="staff"><span class="nm">' + (onShift(j)?'🟢':'💤') + ' ' + esc(j.boss_name) + ' 님의 회사' +
+      '<small style="display:block;color:var(--sub);font-weight:600">' + esc(shiftTask(j)) +
+      ' · 실적 ' + (j.shifts||0) + '회</small></span>' +
       '<span class="wg">' + fmtW(j.wage) + '/3분</span>' +
-      (pend
-        ? '<button style="background:#0f2a1f;border-color:#1d4a38;color:var(--mint)" data-job="yes" data-jid="' + j.id + '">수락</button>' +
-          '<button data-job="no" data-jid="' + j.id + '">거절</button>'
-        : '<button data-job="quit" data-jid="' + j.id + '">퇴사</button>') + '</div>';
+      (ready
+        ? '<button style="background:#0f2a1f;border-color:#1d4a38;color:var(--mint)" data-job="work" data-jid="' + j.id + '">🛠 업무</button>'
+        : '<button disabled>⏳ ' + mm + ':' + String(ss).padStart(2,'0') + '</button>') +
+      '<button data-job="quit" data-jid="' + j.id + '">퇴사</button></div>';
   }).join('');
   el.querySelectorAll('[data-job]').forEach(b=>{
     b.onclick = async ()=>{
       const id = Number(b.dataset.jid), a = b.dataset.job;
       if(a==='quit') return endJob(id, '퇴사했습니다');
+      if(a==='work') return doShift(id);
       try{
         const r = await rpc('app_job_respond', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:id, p_accept:a==='yes'});
         if(!r.ok) return toast(r.err || '처리하지 못했습니다');
@@ -2425,6 +2476,31 @@ function renderJobs(){
       }catch(e){ toast('실패: ' + e.message); }
     };
   });
+}
+/* 오늘 맡은 일 — 같은 사람에게 같은 순서로 돌아옵니다 */
+const SHIFT_TASKS = ['📦 재고 정리','📊 주간 보고서 작성','📞 거래처 응대','🧾 매출 전표 입력',
+  '🧹 사무실 정리','💡 신제품 아이디어 회의','🚚 납품 일정 조율','🔧 설비 점검','🖥️ 재고 시스템 점검'];
+function shiftTask(j){
+  return SHIFT_TASKS[(hashStr(String(j.id)) + (j.shifts||0)) % SHIFT_TASKS.length];
+}
+/* 3분마다 한 번, 업무를 처리하면 성과급이 나오고 회사 생산성이 유지됩니다 */
+let shiftBusy = false;
+async function doShift(id){
+  if(shiftBusy) return;
+  const j = JOBS.find(x=>x.id===id);
+  const task = j ? shiftTask(j) : '업무';
+  shiftBusy = true;
+  try{
+    const r = await rpc('app_job_work', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:id});
+    if(!r.ok){
+      if(r.wait) return toast('아직 쉬는 시간입니다 · ' + Math.ceil(r.wait/60) + '분 뒤에 다시 오세요');
+      return toast(r.err || '처리하지 못했습니다');
+    }
+    toast(task + ' 완료 · 성과급 ' + fmtW(r.bonus) + ' 지급 (누적 ' + r.shifts + '회)');
+    await loadJobs(); renderJobs(); renderMgmt();
+    claimMoney();
+  }catch(e){ toast('실패: ' + e.message); }
+  finally{ shiftBusy = false; }
 }
 async function endJob(id, msg){
   try{
@@ -2605,7 +2681,16 @@ async function collectBuildings(){
     renderLand();
   }
 }
+let shiftTimer = null;
+function startShiftClock(){
+  if(shiftTimer) clearInterval(shiftTimer);
+  shiftTimer = setInterval(()=>{
+    const panel = $('jobPanel');
+    if(panel && !panel.hidden && !$('modal').classList.contains('on')) renderJobs();
+  }, 5000);
+}
 function startCollect(){
+  startShiftClock();
   if(collectTimer) clearInterval(collectTimer);
   collectTimer = setInterval(collectBuildings, 60000);   // 1분마다 확인, 3분치가 쌓였으면 지급
 }
@@ -2970,6 +3055,17 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'2.6', date:'2026-09-22', title:'신규 상장 10종목 · 직원 업무',
+    items:[
+      ['new','국내 5종목 추가 — 포스코홀딩스 · 기아 · KB금융 · 아모레퍼시픽 · 두산에너빌리티'],
+      ['new','해외 5종목 추가 — AMD · 코스트코 · 보잉 · 스타벅스 · 팔란티어'],
+      ['new','철강 · 금융 · 화장품 · 에너지 업종이 생겼습니다. 회사를 세울 때 이 업종도 고를 수 있습니다'],
+      ['new','직원에게 할 일이 생겼습니다. 3분마다 업무를 처리하면 급여의 절반을 성과급으로 더 받습니다'],
+      ['chg','업무를 손 놓은 직원은 생산성이 +8%에서 +1.5%로 떨어집니다. 급여는 그대로 나가니 사장은 확인하세요'],
+      ['new','사장 화면에 직원별 근무 상태(🟢 근무 중 / 💤 자리 비움)와 누적 실적이 표시됩니다'],
+      ['chg','랭킹은 상위 10위까지만 보여주고, 내가 10위 밖이면 내 순위만 따로 붙습니다'],
+      ['new','새 버전이 배포되면 게임이 알아서 저장하고 새로고침합니다'],
+    ]},
   { v:'2.5', date:'2026-09-22', title:'회사 상장',
     items:[
       ['new','회사를 세우면 국내주식에 그 이름과 업종으로 종목이 올라갑니다'],
@@ -3098,6 +3194,29 @@ const PATCH_NOTES = [
     ]},
 ];
 const APP_VERSION = PATCH_NOTES[0].v;
+/* ── 자동 새로고침 ────────────────────────────────────
+   배포할 때 version.json 의 v 를 패치 번호로 올려 둡니다.
+   1분마다 확인해서 번호가 달라지면 저장하고 스스로 새로고침합니다.  */
+let verTimer = null, verBusy = false;
+async function checkVersion(){
+  if(verTimer || verBusy) return;
+  verBusy = true;
+  try{
+    const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    const j = await r.json();
+    const v = j && j.v ? String(j.v) : '';
+    if(!v || v === APP_VERSION) return;
+    toast('🔄 새 버전 ' + v + ' 이 나왔습니다 · 5초 뒤 새로고침합니다');
+    verTimer = setTimeout(()=>{
+      try{ if(typeof G !== 'undefined' && G) saveGame(true); }catch(e){}
+      location.reload();
+    }, 5000);
+  }catch(e){ /* 오프라인이면 조용히 넘어갑니다 */ }
+  finally{ verBusy = false; }
+}
+setInterval(checkVersion, 60000);
+setTimeout(checkVersion, 15000);
 const PATCH_SEEN_KEY = 'MONEYROAD_PATCH_SEEN';
 const TAGLABEL = {new:'추가', chg:'변경', fix:'수정', del:'삭제'};
 

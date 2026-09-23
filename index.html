@@ -2055,7 +2055,7 @@ function buyMine(m){
     '<div class="warnbox" style="margin-top:12px">광구는 계정에 남습니다. 사자마자 광부를 뽑아야 캐기 시작합니다.<br>' +
     '임금은 3분마다 나가니, 광부만 잔뜩 뽑고 안 팔면 적자가 납니다.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
-  $('mineBuyGo').onclick = async ()=>{
+  once('mineBuyGo', async ()=>{
     try{
       const r = await rpc('app_mine_buy', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id});
       if(!r.ok) return toast(r.err || '사지 못했습니다');
@@ -2063,7 +2063,7 @@ function buyMine(m){
       closeModal(); toast('⛏️ ' + r.name + ' 광구를 샀습니다');
       renderMine();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 function sellMine(m){
   openModal('<h2>📤 광구 내놓기</h2>' +
@@ -2099,7 +2099,7 @@ function openDig(m){
     '<button class="big-btn" id="digGo"' + (G.cash < cost ? ' disabled' : '') + '>' + fmtW(cost) + ' 내고 파기</button>' +
     '<div class="warnbox" style="margin-top:12px">깊이 팔수록 굴착비도 같이 비싸집니다. 붕괴가 나면 광부 절반과 창고 광물을 전부 잃고 15분간 멈춥니다.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
-  $('digGo').onclick = async ()=>{
+  once('digGo', async ()=>{
     if(G.cash < cost) return toast('현금이 부족합니다');
     try{
       const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{depth:d+1}});
@@ -2107,7 +2107,7 @@ function openDig(m){
       G.cash -= cost; saveGame(true); renderAll();
       closeModal(); toast('⛏ ' + (d+1) + '층까지 파 내려갔습니다'); renderMine();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 
 /* ── 안전 설비 */
@@ -2123,7 +2123,7 @@ function openSafety(m){
     '<button class="big-btn" id="safeGo"' + (G.cash < cost ? ' disabled' : '') + '>' + fmtW(cost) + ' 내고 보강</button>' +
     '<div class="warnbox" style="margin-top:12px">한 단계마다 붕괴 위험이 16%씩 줄어듭니다. 깊이 팔 생각이면 먼저 보강하세요.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
-  $('safeGo').onclick = async ()=>{
+  once('safeGo', async ()=>{
     if(G.cash < cost) return toast('현금이 부족합니다');
     try{
       const r = await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{safety:lv+1}});
@@ -2131,7 +2131,7 @@ function openSafety(m){
       G.cash -= cost; saveGame(true); renderAll();
       closeModal(); toast('🦺 안전 설비 ' + (lv+1) + '단계'); renderMine();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 
 /* ── 광부 고용 (NPC + 실제 유저) */
@@ -2167,7 +2167,7 @@ function openMiners(m){
   $('mnAdd').onclick = ()=>setNpc((m.npc||0) + 1);
   $('mnDel').onclick = ()=>setNpc(Math.max(0, (m.npc||0) - 1));
   fillHirePick('minePick', 'mineHireId');
-  $('mineHireGo').onclick = async ()=>{
+  once('mineHireGo', async ()=>{
     const who = ($('mineHireId').value||'').trim();
     const wage = Math.floor(Number($('mineHireW').value)||0);
     if(!who) return toast('아이디를 넣어주세요');
@@ -2179,7 +2179,7 @@ function openMiners(m){
       toast(r.pending_login ? ('📩 ' + r.worker + ' 님께 제안을 예약했습니다') : ('📩 ' + r.worker + ' 님께 제안을 보냈습니다'));
       await loadJobs(); renderMine();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 
 /* ── 광물 팔기 */
@@ -2199,7 +2199,7 @@ function openShip(m){
     const q = Math.max(0, Math.min(stock, Math.floor(Number(inp.value)||0)));
     $('shipSum').textContent = fmtW(q * px);
   };
-  $('shipGo').onclick = async ()=>{
+  once('shipGo', async ()=>{
     const q = Math.max(0, Math.min(stock, Math.floor(Number(inp.value)||0)));
     if(!q) return toast('수량을 넣어주세요');
     try{
@@ -2209,7 +2209,7 @@ function openShip(m){
       closeModal(); toast('📦 ' + esc(m.ore) + ' ' + q.toLocaleString() + '개를 ' + fmtW(q*px) + '에 팔았습니다');
       renderMine();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 
 /* ── 3분 정산: 캐고, 임금 주고, 가끔 무너집니다 */
@@ -2946,7 +2946,7 @@ function openBuild(l){
     $('secRow').hidden = (t !== 'corp');
     $('bldGo').textContent = t === 'corp' ? '이 이름으로 회사 설립' : '이 이름으로 짓기';
     $('bldNm').placeholder = t === 'corp' ? '회사 이름 (예: 머니로드전자)' : '건물 이름 (선택)';
-    $('bldGo').onclick = ()=>doBuild(l, t, t === 'corp' ? $('bldSec').value : null, ($('bldNm').value||'').trim());
+    once('bldGo', ()=>doBuild(l, t, t === 'corp' ? $('bldSec').value : null, ($('bldNm').value||'').trim()));
   });
 }
 async function doBuild(l, type, sector, nm){
@@ -2972,7 +2972,7 @@ async function upgradeBuild(l){
     '<div class="kv"><span>비용</span><b style="color:var(--gold)">' + fmtW(cost) + '</b></div>' +
     '<button class="big-btn" id="upGo" style="margin-top:12px">증축하기</button>' +
     '<button class="ghost-btn" onclick="closeModal()">취소</button>');
-  $('upGo').onclick = async ()=>{
+  once('upGo', async ()=>{
     $('upGo').disabled = true;
     try{
       const r = await rpc('app_build_up', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id});
@@ -2981,7 +2981,7 @@ async function upgradeBuild(l){
       closeModal(); toast('⬆ Lv' + r.level + '로 증축했습니다');
       renderLand();
     }catch(e){ $('upGo').disabled=false; toast('실패: ' + e.message); }
-  };
+  });
 }
 function razeBuild(l){
   const _shareWarn = (l.bld_type==='corp' && CORP.some(c=>c.landId===l.id))
@@ -2992,13 +2992,13 @@ function razeBuild(l){
     '<b style="color:#ffb3c0">건축비는 돌려받지 못합니다.</b></p>' +
     '<button class="big-btn" id="razeGo" style="background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff">철거한다</button>' +
     '<button class="ghost-btn" onclick="closeModal()">취소</button>');
-  $('razeGo').onclick = async ()=>{
+  once('razeGo', async ()=>{
     try{
       const r = await rpc('app_build_del', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id});
       if(!r.ok) return toast(r.err || '철거하지 못했습니다');
       closeModal(); toast('🧨 철거했습니다'); renderLand();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 
 /* ── 경영 패널 ─────────────────────────────────── */
@@ -3172,7 +3172,7 @@ function openOrder(l){
     $('ordGo').disabled = q < 1 || q > max;
   };
   $('ordQ').oninput = upd; upd();
-  $('ordGo').onclick = async ()=>{
+  once('ordGo', async ()=>{
     const q = Math.floor(Number($('ordQ').value)||0);
     if(q < 1 || q*uc > G.cash) return toast('수량이나 현금을 확인해주세요');
     try{
@@ -3182,7 +3182,7 @@ function openOrder(l){
       closeModal(); toast('📦 ' + q.toLocaleString() + '개를 들여왔습니다');
       refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 /* 신제품 개발 */
 function openRnd(l){
@@ -3195,7 +3195,7 @@ function openRnd(l){
     '<button class="big-btn" id="rndGo">연구에 투자</button>' +
     '<div class="warnbox" style="margin-top:12px">진행도가 목표에 닿으면 <b>70% 확률</b>로 제품 레벨이 오릅니다.<br>실패하면 진행도의 절반이 날아갑니다.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
-  $('rndGo').onclick = async ()=>{
+  once('rndGo', async ()=>{
     const amt = Math.floor(Number($('rndA').value)||0);
     if(amt < 1000) return toast('1,000원 이상 투자해주세요');
     if(amt > G.cash) return toast('현금이 부족합니다');
@@ -3210,7 +3210,7 @@ function openRnd(l){
       G.cash -= amt; saveGame(true); renderAll();
       closeModal(); toast(msg); refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 /* 직원 채용 */
 function openHire(l){
@@ -3251,7 +3251,7 @@ function openHire(l){
   })();
   $('npcAdd').onclick = ()=>setEmp(Math.min(20, (l.bld_emp||0)+1));
   $('npcDel').onclick = ()=>setEmp(Math.max(0, (l.bld_emp||0)-1));
-  $('hireGo').onclick = async ()=>{
+  once('hireGo', async ()=>{
     const id = ($('hireId').value||'').trim(), wage = Math.floor(Number($('hireW').value)||0);
     if(!id) return toast('아이디를 입력해주세요');
     if(wage < 100) return toast('급여는 100원 이상이어야 합니다');
@@ -3264,7 +3264,7 @@ function openHire(l){
         : ('📩 ' + r.worker + ' 님에게 제안을 보냈습니다'));
       await loadJobs(); refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 /* 이름 바꾸기 */
 function openRename(l){
@@ -3272,13 +3272,13 @@ function openRename(l){
     '<input class="auth-in" id="rnNm" maxlength="16" value="' + esc(l.bld_name||'') + '" placeholder="이름 (16자까지)" style="margin-top:12px" aria-label="건물 이름">' +
     '<button class="big-btn" id="rnGo">저장</button>' +
     '<button class="ghost-btn" onclick="closeModal()">취소</button>');
-  $('rnGo').onclick = async ()=>{
+  once('rnGo', async ()=>{
     try{
       const r = await rpc('app_bld_rename', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_name:($('rnNm').value||'').trim()});
       if(!r.ok) return toast(r.err || '실패');
       closeModal(); toast('이름을 바꿨습니다'); refreshLandAll();
     }catch(e){ toast('실패: ' + e.message); }
-  };
+  });
 }
 async function refreshLandAll(){ await loadLands(); await loadJobs(); renderLand(); }
 
@@ -3733,6 +3733,12 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.7', date:'2026-09-23', title:'버그 수정 — 연타로 돈이 복사되던 문제',
+    items:[
+      ['fix','광물 팔기 버튼을 빠르게 두 번 누르면 창고는 한 번만 줄고 현금은 두 번 들어왔습니다. 사실상 돈 복사였습니다'],
+      ['fix','갱도 굴착 · 안전 설비 · 재고 발주 · 연구 투자 · 증축도 연타하면 돈이 여러 번 빠져나갔습니다'],
+      ['chg','돈이 오가는 버튼 12개가 이제 한 번만 눌립니다. 처리하는 동안 잠기고 끝나면 풀립니다'],
+    ]},
   { v:'3.6', date:'2026-09-23', title:'버그 수정 — 망가진 세이브가 순자산을 통째로 날리던 문제',
     items:[
       ['fix','보유 주식 한 줄만 망가져도 순자산이 통째로 계산 불능이 되어, 그 값이 그대로 랭킹에 올라갔습니다'],
@@ -5064,6 +5070,20 @@ function gameOver(){
 
 /* ==================== 공통 UI ==================== */
 let lastFocus = null;
+/* 한 번만 눌리게 만드는 껍데기.
+   빠르게 두 번 누르면 서버 호출이 두 번 나가 돈이 두 번 움직이던 문제를 막습니다. */
+function once(id, fn){
+  const b = $(id); if(!b) return;
+  b.onclick = async (ev)=>{
+    if(b.dataset.busy === '1') return;
+    b.dataset.busy = '1'; b.disabled = true;
+    try{ await fn(ev); }
+    finally{
+      b.dataset.busy = '';
+      if(document.body.contains(b)) b.disabled = false;
+    }
+  };
+}
 function openModal(html){
   lastFocus = document.activeElement;
   const box = $('mbox');

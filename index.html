@@ -1193,7 +1193,7 @@ function logout(){
   if(timer){ clearInterval(timer); timer=null; }
   pushSlots(true);
   G = null; AUTH = null;
-  LANDS = []; MINES = []; JOBS = []; CORP = []; estateCache = 0;   // 계정이 바뀌면 확실히 비웁니다
+  LANDS = []; MINES = []; JOBS = []; CORP = []; FRIENDS = []; estateCache = 0;   // 계정이 바뀌면 확실히 비웁니다
   srvMode = false; SRV_TOKEN = ''; lsDel(TOKEN_KEY);
   stopPresence();
   resetCasino(); overShown=false;
@@ -1595,7 +1595,7 @@ function msgHTML(m){
     <div class="body">
       <div class="who">${esc(m.user||'익명')}${m.admin?'<span class="badge">운영자</span>':''}<time>${t}</time>
         ${adminOn?`<button class="del" data-delmsg="${esc(String(m.id))}">삭제</button>`:''}</div>
-      <div class="tx">${esc(m.text||'')}</div>
+      <div class="tx">${esc(squash(m.text||''))}</div>
     </div></div>`;
 }
 async function renderChat(force){
@@ -1639,11 +1639,16 @@ function renderChatAs(){
   $('chatSend').disabled = !nick;
   $('chatIn').placeholder = nick ? '메시지를 입력하세요 (200자)' : '로그인 후 이용할 수 있습니다';
 }
+let lastSent = '', lastSentAt = 0;
 async function sendChat(){
   if(!chatNick()) return toast('글을 쓰려면 계정으로 로그인해주세요');
   const inp = $('chatIn'); const text = (inp.value||'').trim();
   if(!text) return;
   if(text.length > 200) return toast('200자를 넘을 수 없습니다');
+  const now = Date.now();
+  if(now - lastSentAt < 1500) return toast('조금 천천히 보내주세요');
+  if(text === lastSent && now - lastSentAt < 30000) return toast('같은 글을 연달아 보낼 수 없습니다');
+  lastSent = text; lastSentAt = now;
   inp.value = ''; inp.disabled = true;
   try{ await pushMsg(text); lastChatSig=''; await renderChat(true); }
   catch(e){ toast('전송 실패: '+e.message); inp.value = text; }
@@ -2322,14 +2327,18 @@ function sbPost(table, body, prefer){
 
 /* ── 친구 ── */
 async function loadFriends(){
-  if(!usersReady()){ FRIENDS = []; return; }
+  if(!usersReady()) return;                      // 연결이 없으면 지난 목록을 그대로 둡니다
   try{
-    FRIENDS = await sbGet('friends?select=friend_lc,friend_name&user_lc=eq.' + encodeURIComponent(myLc()) + '&order=friend_name');
-  }catch(e){ FRIENDS = []; }
+    const r = await sbGet('friends?select=friend_lc,friend_name&user_lc=eq.' + encodeURIComponent(myLc()) + '&order=friend_name');
+    if(Array.isArray(r)) FRIENDS = r;
+  }catch(e){}
 }
 function isFriend(lc){ return FRIENDS.some(f=>f.friend_lc===lc); }
+let friendBusy = false;
 async function toggleFriend(lc, name){
   if(!usersReady()) return toast('계정으로 로그인하고 서버에 연결된 상태에서만 가능합니다');
+  if(friendBusy) return;                         // 연타하면 같은 사람이 두 번 들어갑니다
+  friendBusy = true;
   try{
     if(isFriend(lc)){
       const r = await fetch(COMM.url + '/rest/v1/friends?user_lc=eq.' + encodeURIComponent(myLc()) + '&friend_lc=eq.' + encodeURIComponent(lc),
@@ -2343,6 +2352,7 @@ async function toggleFriend(lc, name){
     }
     await loadFriends(); renderFriends(); renderSearch(lastResults);
   }catch(e){ toast('실패: ' + e.message); }
+  finally{ friendBusy = false; }
 }
 function renderFriends(){
   const el = $('friendList'); if(!el) return;
@@ -2526,7 +2536,7 @@ async function loadWhispers(force){
       return '<div class="msg ' + (mine?'me':'') + '">' +
         '<div class="av">' + esc(String(who).charAt(0).toUpperCase()) + '</div>' +
         '<div class="body"><div class="who">' + esc(who) + '<time>' + t + '</time></div>' +
-        '<div class="tx">' + esc(r.body) + '</div></div></div>';
+        '<div class="tx">' + esc(squash(r.body)) + '</div></div></div>';
     }).join('') : '<div class="chatempty">아직 주고받은 귓속말이 없습니다.</div>';
     if(atBottom || force) box.scrollTop = box.scrollHeight;
   }catch(e){ box.innerHTML = '<div class="chatempty">불러오지 못했습니다 — ' + esc(e.message) + '</div>'; }
@@ -2772,6 +2782,10 @@ function corpPrice(l){
   return Math.max(10, p0 * jitter * (1 + mom * 0.35));
 }
 const cleanName = t => String(t||'').replace(/[<>]/g,'').slice(0,24);
+/* 같은 글자를 스무 번 넘게 반복하면 줄여서 보여줍니다 — 도배로 화면이 깨지는 걸 막습니다 */
+function squash(t){
+  return String(t||'').replace(/(.){19,}/gu, (m, c)=> c.repeat(20) + '…(' + m.length + ')');
+}
 function buildCorpStocks(){
   CORP = LANDS.filter(l => l.bld_type === 'corp' && l.bld_level > 0).map(l=>{
     const px = corpPrice(l);
@@ -3750,6 +3764,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'4.0', date:'2026-09-23', title:'커뮤니티 도배 방지 · 친구 목록',
+    items:[
+      ['new','같은 글을 연달아 보내거나 1.5초 안에 여러 번 보낼 수 없습니다'],
+      ['new','같은 글자를 스무 번 넘게 반복하면 줄여서 보여줍니다. 도배로 채팅창이 깨지던 문제입니다'],
+      ['fix','서버가 끊기면 친구 목록이 비어 친구가 사라진 것처럼 보였습니다'],
+      ['fix','친구 버튼을 연타하면 같은 사람이 목록에 두 번 들어갔습니다'],
+    ]},
   { v:'3.9', date:'2026-09-23', title:'버그 수정 — 지운 캐릭터가 되살아나던 문제',
     items:[
       ['fix','플레이 중인 슬롯을 지워도 그 기록을 계속 들고 있어, 다음 자동저장 때 되살아날 수 있었습니다'],

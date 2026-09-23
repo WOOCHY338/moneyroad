@@ -1023,8 +1023,41 @@ function saveSlots(a){
   pushSlots();                                           // 서버에도 반영 (묶어서 전송)
   return ok;
 }
+/* ── 탭 중복 방지 ────────────────────────────────────
+   같은 계정을 두 탭에서 열면 나중에 저장한 쪽이 앞선 진행을 지웁니다.
+   나중에 연 탭이 주도권을 갖고, 먼저 있던 탭은 저장을 멈춥니다. */
+let SAVE_BLOCKED = false, tabCh = null;
+function tabKey(){ return AUTH ? (AUTH.mode==='user' ? 'u_'+AUTH.id : 'guest') : ''; }
+function claimTab(){
+  try{
+    if(!tabCh) tabCh = new BroadcastChannel('moneyroad-tab');
+    SAVE_BLOCKED = false; hideTabWarn();
+    tabCh.postMessage({type:'claim', who:tabKey(), t:Date.now()});
+    tabCh.onmessage = e=>{
+      const d = e.data || {};
+      if(d.type !== 'claim' || !d.who || d.who !== tabKey()) return;
+      SAVE_BLOCKED = true;                       // 더 최근에 연 탭에 자리를 내줍니다
+      showTabWarn();
+    };
+  }catch(e){ /* BroadcastChannel 이 없는 브라우저면 그냥 넘어갑니다 */ }
+}
+function showTabWarn(){
+  if($('tabWarn')) return;
+  const d = document.createElement('div');
+  d.id = 'tabWarn';
+  d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#3a1220;color:#ff8a9c;'
+    + 'padding:11px 14px;font-size:13px;font-weight:700;text-align:center;border-top:1px solid #6b2233';
+  d.textContent = '⚠️ 같은 계정이 다른 탭에서 열렸습니다 — 이 탭은 저장이 멈췄습니다. 새 탭에서 이어서 하세요.';
+  document.body.appendChild(d);
+}
+function hideTabWarn(){ const d = $('tabWarn'); if(d) d.remove(); }
+
 function saveGame(silent){
   if(!G) return;
+  if(SAVE_BLOCKED){                              // 다른 탭이 주도권을 가졌습니다
+    if(!silent) toast('⚠️ 다른 탭에서 같은 계정이 열려 이 탭은 저장하지 않습니다');
+    return;
+  }
   // 어떤 경로로든 숫자가 망가지면 세이브가 통째로 오염되므로 여기서 막는다
   if(!Number.isFinite(G.cash) || !Number.isFinite(G.debt)){
     G.cash = Number.isFinite(G.cash) ? G.cash : 0;
@@ -1095,6 +1128,7 @@ async function rpc(fn, args){
 }
 /* 슬롯을 서버에 올린다 — 잦은 저장을 묶어서 보낸다 */
 function pushSlots(now){
+  if(SAVE_BLOCKED) return;                       // 다른 탭이 주도권을 가졌으면 서버도 건드리지 않습니다
   if(!srvMode || !AUTH || AUTH.mode !== 'user' || !SRV_TOKEN || !srvUp()) return;
   const send = ()=>{
     pushTimer = null;
@@ -1148,6 +1182,7 @@ function logout(){
   if(timer){ clearInterval(timer); timer=null; }
   pushSlots(true);
   G = null; AUTH = null;
+  LANDS = []; MINES = []; JOBS = []; CORP = []; estateCache = 0;   // 계정이 바뀌면 확실히 비웁니다
   srvMode = false; SRV_TOKEN = ''; lsDel(TOKEN_KEY);
   stopPresence();
   resetCasino(); overShown=false;
@@ -1846,8 +1881,8 @@ function orePct(m){
 function myMines(){ const me = myLc(); return me ? MINES.filter(m => m.owner_lc === me) : []; }
 
 async function loadMines(){
-  if(!commOnline()){ MINES = []; return; }
-  try{ MINES = await rpc('app_mines', {}) || []; }catch(e){ MINES = []; }
+  if(!commOnline()) return;
+  try{ const r = await rpc('app_mines', {}); if(Array.isArray(r)) MINES = r; }catch(e){}
 }
 
 /* ── 광물 시세판 */
@@ -2730,8 +2765,8 @@ function findStock(id){ return allStocks().find(x=>x.id===id); }
 function landRent(){ return myLands().reduce((a,l)=>a + bldIncome(l), 0); }
 
 async function loadLands(){
-  if(!commOnline()){ LANDS = []; CORP = []; return; }
-  try{ LANDS = await rpc('app_lands', {}); }catch(e){ LANDS = []; }
+  if(!commOnline()) return;                       // 연결이 없으면 지난 값을 그대로 둡니다
+  try{ const r = await rpc('app_lands', {}); if(Array.isArray(r)) LANDS = r; }catch(e){}
   buildCorpStocks();
 }
 /* ── 재분양 ─────────────────────────────────────────
@@ -2945,8 +2980,8 @@ function razeBuild(l){
 let JOBS = [], collectTimer = null;
 
 async function loadJobs(){
-  if(!usersReady()){ JOBS = []; return; }
-  try{ JOBS = await rpc('app_jobs', {p_user:AUTH.name, p_token:SRV_TOKEN}); }catch(e){ JOBS = []; }
+  if(!usersReady()) return;
+  try{ const r = await rpc('app_jobs', {p_user:AUTH.name, p_token:SRV_TOKEN}); if(Array.isArray(r)) JOBS = r; }catch(e){}
 }
 function mgmtCard(l){
   const b = BLD[l.bld_type];
@@ -3641,6 +3676,7 @@ function startGame(slot){
   claimMorningBonus(); claimLaunchBonus();
   claimMoney(); collectBuildings();
   showScreen('game');
+  claimTab();
   renderNav('kr'); switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed();
 }
@@ -3667,6 +3703,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.3', date:'2026-09-23', title:'버그 수정 — 파산 판정 · 끊김 · 탭 중복',
+    items:[
+      ['fix','부동산에 전 재산을 넣으면 현금이 마르는 순간 파산 판정을 받았습니다. 땅은 팔면 되는 자산인데 게임이 끝나 버렸습니다'],
+      ['new','땅과 광산을 담보로 인정합니다. 값어치의 30%까지 대출 한도에 들어가고, 마진콜 기준도 같이 완화됩니다'],
+      ['fix','서버가 잠깐 끊기면 내 땅·광산·일자리가 통째로 사라진 것으로 처리됐습니다. 순자산이 0으로 떨어져 랭킹에 올라갔고, 최악의 경우 파산 판정까지 갔습니다. 이제 연결이 끊겨도 지난 값을 그대로 씁니다'],
+      ['new','같은 계정을 탭 두 개로 열면 경고가 뜨고, 먼저 열려 있던 탭은 저장을 멈춥니다. 예전에는 나중에 저장한 쪽이 앞선 진행을 소리 없이 지웠습니다'],
+    ]},
   { v:'3.2', date:'2026-09-23', title:'버그 수정 — 순자산 · 일자리 · 임금',
     items:[
       ['fix','순자산에 건물과 광산이 빠져 있었습니다. 4억짜리 광구를 사면 랭킹에서 4억이 그냥 사라졌습니다. 부동산에 투자할수록 순위가 내려가던 문제입니다'],
@@ -4255,7 +4298,11 @@ function creditInfo(){
   return {g, r: base + extra, lev};
 }
 /* 2만원은 담보와 무관한 '재기 자금'. 그 위로는 순자산의 1.2배까지만 빌릴 수 있다. */
-function loanLimit(){ return Math.max(20000, Math.floor(netWorthOf(G)*1.2)); }
+/* 부동산·광산은 당장 현금이 되진 않지만 담보 가치는 있습니다.
+   30% 만 인정해 대출 한도와 마진콜 기준에 함께 반영합니다. */
+const COLLATERAL = 0.30;
+function pledged(){ return Math.floor(estateValue() * COLLATERAL); }
+function loanLimit(){ return Math.max(20000, Math.floor((netWorthOf(G) + pledged())*1.2)); }
 function loanAvail(){ return Math.max(0, loanLimit() - G.debt); }
 function bankLog(msg){
   G.bank.unshift({d:G.day, m:msg});
@@ -4282,7 +4329,7 @@ function checkMargin(){
   // 재기 자금 2만원까지는 담보 없이 빌려주는 돈이므로 마진콜 대상에서 뺀다
   const callable = Math.max(0, G.debt - 20000);
   if(callable <= 0) return;
-  if(netWorthOf(G) >= callable*0.25) return;   // 그 위로는 담보유지비율 25%
+  if(netWorthOf(G) + pledged() >= callable*0.25) return;   // 그 위로는 담보유지비율 25%
   let sold = 0;
   allStocks().forEach(s=>{
     const h = G.holdings[s.id]; if(!h || !h.qty) return;
@@ -4906,6 +4953,14 @@ function checkBroke(){
   const noStock = Object.values(G.holdings).every(h=>!h.qty);
   if(!noStock){ brokeHinted = false; return; }
   if(G.cash >= 1000){ brokeHinted = false; return; }
+  // 땅이나 광산이 있으면 파산이 아닙니다. 팔면 현금이 되고, 3분마다 수익도 들어옵니다.
+  if(estateValue() > 0){
+    if(!brokeHinted){
+      brokeHinted = true;
+      toast('💸 현금이 떨어졌습니다 — 부동산을 팔거나 건물 수익을 기다려보세요');
+    }
+    return;
+  }
   // 돈이 떨어져도 빌릴 수 있으면 아직 파산이 아닙니다. 은행으로 안내만 합니다.
   if(loanAvail() >= 1000){
     if(!brokeHinted){

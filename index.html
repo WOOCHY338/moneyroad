@@ -2218,7 +2218,7 @@ async function collectMines(){
   await loadMines(); await loadJobs();          // JOBS 가 비어 있으면 유저 광부가 없는 걸로 계산됩니다
   const list = myMines();
   if(!list.length) return;
-  let pay = 0; const lines = [];
+  let pay = 0; const lines = [], wageQueue = [];
   for(const m of list){
     const last = m.paid_at ? new Date(m.paid_at).getTime() : 0;
     const n = last ? Math.min(20, Math.floor((Date.now() - last) / MINE_SLOT_MS)) : 1;
@@ -2257,16 +2257,17 @@ async function collectMines(){
     }
     try{ await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:patch}); }catch(e){ continue; }
 
-    // 유저 광부 급여는 실제로 보냅니다
+    // 급여는 낼 돈이 있는지 확인한 뒤에 보냅니다 (아래에서 한꺼번에)
     for(const j of myMiners(m.id)){
       const w = Math.floor(Number(j.wage)||0) * Math.max(1, ran);
-      if(w > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (광부 임금)', to_lc:(j.worker_lc || j.worker_name.toLowerCase()), amount:w}); }catch(e){} }
+      if(w > 0) wageQueue.push({to:(j.worker_lc || j.worker_name.toLowerCase()), amount:w, tag:'광부 임금'});
     }
   }
   if(pay > 0){
     if(G.cash < pay){                                   // 임금을 못 주면 광부가 떠납니다
       const short = pay - G.cash;
       G.cash = 0;
+      wageQueue.length = 0;                             // 낼 돈이 없으니 급여도 나가지 않습니다
       for(const m of list){
         if(!(m.npc > 0)) continue;
         const gone = Math.max(1, Math.ceil((m.npc||0) * 0.34));
@@ -2281,13 +2282,16 @@ async function collectMines(){
     }
     saveGame(true); renderAll();
   }
+  await flushWages(wageQueue);
   if(lines.length) toast(lines.slice(0,2).join(' · ') + (pay ? ' · 임금 ' + fmtW(pay) : ''));
   if($('tab-mine') && $('tab-mine').classList.contains('on') && !$('modal').classList.contains('on')) renderMine();
 }
+let oreTimer = null;
 function startMinePoll(){
   if(mineTimer) clearInterval(mineTimer);
+  if(oreTimer) clearInterval(oreTimer);
   mineTimer = setInterval(collectMines, 60000);
-  setInterval(()=>{                                   // 시세판은 20초마다 따로 갱신
+  oreTimer = setInterval(()=>{                        // 시세판은 20초마다 따로 갱신
     const tab = $('tab-mine');
     if(tab && tab.classList.contains('on') && !$('modal').classList.contains('on')){
       renderOreBoard(); renderMineMgmt();
@@ -3287,7 +3291,7 @@ async function collectBuildings(){
   if(!G || !usersReady()) return;
   await loadLands(); await loadJobs();
   const now = Date.now();
-  let total = 0, lines = [];
+  let total = 0, lines = [], wageQueue = [];
   for(const l of myLands()){
     if(!(l.bld_level > 0)) continue;
     const last = l.paid_at ? new Date(l.paid_at).getTime() : now;
@@ -3309,10 +3313,10 @@ async function collectBuildings(){
       gain = bldIncome(l) * n;
     }
     try{ await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:patch}); }catch(e){ continue; }
-    // 유저 직원 급여는 실제로 보낸다
+    // 급여는 낼 돈이 있는지 확인한 뒤에 보냅니다 (아래에서 한꺼번에)
     for(const j of myStaff(l.id)){
       const pay = Math.floor(Number(j.wage)||0) * n;
-      if(pay > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (급여)', to_lc:(j.worker_lc || j.worker_name.toLowerCase()), amount:pay}); }catch(e){} }
+      if(pay > 0) wageQueue.push({to:(j.worker_lc || j.worker_name.toLowerCase()), amount:pay, tag:'급여'});
     }
     total += gain;
     if(gain !== 0) lines.push((l.bld_name||BLD[l.bld_type].nm) + ' ' + (gain>0?'+':'') + Math.round(gain).toLocaleString());
@@ -3320,6 +3324,7 @@ async function collectBuildings(){
   if(total < 0 && G.cash < -total){          // 적자를 낼 돈이 없으면 직원이 떠납니다
     const short = -total - G.cash;
     G.cash = 0;
+    wageQueue.length = 0;                    // 낼 돈이 없으니 급여도 나가지 않습니다
     for(const l of myLands()){
       if(!(l.bld_emp > 0)) continue;
       const gone = Math.max(1, Math.ceil(l.bld_emp * 0.34));
@@ -3327,7 +3332,7 @@ async function collectBuildings(){
       lines.push('💸 ' + (l.bld_name || l.name) + ' 임금 체불 — 직원 ' + gone + '명이 떠났습니다');
       break;
     }
-    toast('💸 인건비 ' + fmtW(short) + '이 모자랍니다 — 직원이 떠나고 있습니다');
+    toast('💸 인건비 ' + fmtW(short) + '이 모자랍니다 — 급여가 밀리고 직원이 떠나고 있습니다');
     saveGame(true); renderAll(); renderLand();
   }else if(total !== 0){
     G.cash = Math.max(0, G.cash + total);
@@ -3335,6 +3340,7 @@ async function collectBuildings(){
     toast((total>0?'🏗️ 건물 수익 ':'📉 건물 적자 ') + fmtW(Math.abs(total)) + ' · ' + lines.slice(0,2).join(', '));
     renderLand();
   }
+  await flushWages(wageQueue);
 }
 let shiftTimer = null, landWasOpen = null;
 function startShiftClock(){
@@ -3357,6 +3363,13 @@ function startShiftClock(){
         '남은 시간 <b style="color:var(--gold)">' + landOpenLeft() + '</b>');
     }
   }, 1000);
+}
+/* 밀린 급여를 실제로 보냅니다 — 사장이 낼 수 있다고 확인된 뒤에만 부릅니다 */
+async function flushWages(queue){
+  for(const w of queue){
+    if(!(w.amount > 0)) continue;
+    try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (' + w.tag + ')', to_lc:w.to, amount:w.amount}); }catch(e){}
+  }
 }
 function startCollect(){
   startShiftClock();
@@ -3733,6 +3746,12 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.8', date:'2026-09-23', title:'버그 수정 — 없는 돈이 급여로 나가던 문제',
+    items:[
+      ['fix','사장이 임금을 낼 돈이 없어도 유저 직원·광부에게는 급여가 이미 전송되고 있었습니다. 사장 잔고에서는 안 빠지고 직원에게만 들어가, 돈이 무에서 생겨났습니다'],
+      ['chg','이제 낼 수 있는지 먼저 확인하고 보냅니다. 못 내면 급여가 밀리고 직원이 떠납니다'],
+      ['fix','광물 시세판 갱신 타이머가 정리되지 않고 쌓일 수 있었습니다'],
+    ]},
   { v:'3.7', date:'2026-09-23', title:'버그 수정 — 연타로 돈이 복사되던 문제',
     items:[
       ['fix','광물 팔기 버튼을 빠르게 두 번 누르면 창고는 한 번만 줄고 현금은 두 번 들어왔습니다. 사실상 돈 복사였습니다'],

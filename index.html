@@ -676,7 +676,7 @@ tr:last-child td{border-bottom:none}
       <div class="panel">
         <h3>🏞️ 부동산 <small id="landMode">-</small></h3>
         <div class="warnbox" id="landNote" style="margin:0 0 12px">
-          한국 10필지 · 일본 8필지, 모두 18필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>
+          한국 10필지 · 일본 8필지 · 중국 8필지, 모두 26필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>
           <b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.
         </div>
         <div class="mapwrap"><div id="landMap"></div></div>
@@ -1506,31 +1506,50 @@ const NOTICE_SEEN_KEY  = 'MONEYROAD_NOTICE_SEEN';
 let NOTICE = null;
 
 async function fetchNotice(){
-  try{
+  // 서버 공지가 먼저입니다. 운영자가 패널에서 쓰면 모두에게 바로 보입니다.
+  if(commOnline()){
+    try{
+      const j = await rpc('app_notice', {});
+      if(j && j.on && j.text) return {text:String(j.text), type:j.kind||'info', id:'srv'+j.ver, src:'server'};
+      if(j) return null;                        // 서버가 '내림' 이라고 하면 그대로 따릅니다
+    }catch(e){}
+  }
+  try{                                          // 서버에 못 닿으면 저장소 파일을 봅니다
     const r = await fetch('notice.json', {cache:'no-store'});
     if(r.ok){
       const j = await r.json();
       if(j && j.on !== false && j.text) return {text:String(j.text), type:j.type||'info', id:String(j.id||j.text), src:'global'};
     }
-  }catch(e){}                                   // 파일이 없거나 file:// 환경이면 조용히 넘어간다
+  }catch(e){}
   try{
     const j = JSON.parse(lsGet(NOTICE_LOCAL_KEY));
     if(j && j.on !== false && j.text) return {text:String(j.text), type:j.type||'info', id:String(j.id||j.text), src:'local'};
   }catch(e){}
   return null;
 }
+/* 공지가 바뀌었는지 1분마다 확인합니다 */
+let noticeTimer = null;
+function startNoticePoll(){
+  if(noticeTimer) clearInterval(noticeTimer);
+  noticeTimer = setInterval(async ()=>{
+    const before = NOTICE ? NOTICE.id : '';
+    NOTICE = await fetchNotice();
+    if((NOTICE ? NOTICE.id : '') !== before) renderNotice();
+  }, 60000);
+}
 function renderNotice(){
   const bar = $('noticeBar');
   if(!NOTICE || lsGet(NOTICE_SEEN_KEY) === NOTICE.id){ bar.hidden = true; return; }
   const label = NOTICE.type==='warn' ? '주의' : NOTICE.type==='event' ? '이벤트' : '공지';
   bar.className = NOTICE.type;
-  bar.innerHTML = `<span class="nb-tag">${label}${NOTICE.src==='local'?' (로컬)':''}</span>
+  const srcTag = NOTICE.src==='local' ? ' (로컬)' : NOTICE.src==='global' ? ' (파일)' : '';
+  bar.innerHTML = `<span class="nb-tag">${label}${srcTag}</span>
     <span class="nb-tx">${esc(NOTICE.text)}</span>
     <button class="nb-x" id="nbClose" aria-label="공지 닫기">✕</button>`;
   bar.hidden = false;
   $('nbClose').onclick = ()=>{ lsSet(NOTICE_SEEN_KEY, NOTICE.id); bar.hidden = true; };
 }
-async function initNotice(){ NOTICE = await fetchNotice(); renderNotice(); }
+async function initNotice(){ NOTICE = await fetchNotice(); renderNotice(); startNoticePoll(); }
 
 /* ==================== 커뮤니티 ====================
    기본은 로컬 모드(이 브라우저 안에서만 보임)입니다.
@@ -2408,11 +2427,21 @@ const MAP_POS = {
   J03:{x:424,y:184,lbl:'시부야'}, J04:{x:462,y:196,lbl:'요코하마'},
   J06:{x:402,y:232,lbl:'교토'},   J05:{x:382,y:256,lbl:'도톤보리'},
   J07:{x:322,y:322,lbl:'텐진'},   J08:{x:512,y:90, lbl:'스스키노'},
+  /* 중국 */
+  C02:{x:-150,y:96, lbl:'왕푸징'}, C01:{x:-118,y:78, lbl:'궈마오'},
+  C03:{x:-176,y:70, lbl:'중관춘'},
+  C04:{x:-92, y:214,lbl:'루자쭈이'}, C05:{x:-62, y:200,lbl:'난징둥루'},
+  C06:{x:-166,y:276,lbl:'선전만'},  C07:{x:-206,y:246,lbl:'광저우'},
+  C08:{x:-256,y:170,lbl:'청두'},
 };
-const SEOUL_HUB = {x:104, y:96};
-const TOKYO_HUB = {x:444, y:176};
+const SEOUL_HUB  = {x:104, y:96};
+const TOKYO_HUB  = {x:444, y:176};
+const BEIJING_HUB= {x:-146, y:88};
+const SHANGHAI_HUB={x:-78, y:206};
 const SEOUL_IDS = ['L01','L02','L03','L05','L06'];
 const TOKYO_IDS = ['J01','J02','J03','J04'];
+const BEIJING_IDS = ['C01','C02','C03'];
+const SHANGHAI_IDS = ['C04','C05'];
 const KOREA_PATH = 'M150,20 C166,16 180,24 192,34 L210,42 L228,56 L242,74 L250,94 '
   + 'L244,110 L252,126 L260,146 L258,168 L264,188 L254,210 L244,232 L234,250 '
   + 'L222,266 L206,276 L190,282 L174,276 L158,282 L142,274 L126,280 L112,268 '
@@ -2420,6 +2449,10 @@ const KOREA_PATH = 'M150,20 C166,16 180,24 192,34 L210,42 L228,56 L242,74 L250,9
   + 'L74,94 L86,72 L102,52 L124,32 Z';
 /* 일본은 열도라서 굵은 선으로 섬 모양만 잡아 줍니다 */
 const HONSHU_PATH = 'M336,304 L362,278 L390,248 L416,214 L442,182 L466,152 L486,128';
+/* 중국 본토 — 실제 윤곽을 크게 단순화한 덩어리입니다 */
+const CHINA_PATH = 'M-300,40 L-250,18 L-190,26 L-130,20 L-80,44 L-46,80 L-34,124 '
+  + 'L-44,164 L-58,196 L-52,226 L-74,252 L-110,268 L-150,290 L-196,296 '
+  + 'L-236,280 L-266,250 L-288,210 L-300,164 L-306,110 Z';
 
 function landMapSVG(){
   const me = myLc();
@@ -2428,7 +2461,9 @@ function landMapSVG(){
     const mine = !!me && l.owner_lc === me;
     const color = mine ? '#22e6b4' : (l.for_sale ? '#ffc93c' : '#5b6b8c');
     const hub = SEOUL_IDS.includes(l.id) ? SEOUL_HUB
-              : TOKYO_IDS.includes(l.id) ? TOKYO_HUB : null;
+              : TOKYO_IDS.includes(l.id) ? TOKYO_HUB
+              : BEIJING_IDS.includes(l.id) ? BEIJING_HUB
+              : SHANGHAI_IDS.includes(l.id) ? SHANGHAI_HUB : null;
     const line = hub
       ? '<line class="mp-line" x1="' + hub.x + '" y1="' + hub.y + '" x2="' + pos.x + '" y2="' + pos.y + '"/>'
       : '';
@@ -2443,7 +2478,8 @@ function landMapSVG(){
   const hubDot = (h, nm)=>
     '<circle cx="' + h.x + '" cy="' + h.y + '" r="3" fill="#3a4c6c"/>' +
     '<text class="mp-name" x="' + h.x + '" y="' + (h.y+14) + '" style="fill:#5b6b8c">' + nm + '</text>';
-  return '<svg viewBox="0 0 560 400" role="img" aria-label="한국·일본 부동산 지도">' +
+  return '<svg viewBox="-320 0 880 400" role="img" aria-label="한국·중국·일본 부동산 지도">' +
+    '<path class="mp-land" d="' + CHINA_PATH + '"/>' +
     '<path class="mp-land" d="' + KOREA_PATH + '"/>' +
     '<ellipse class="mp-land" cx="96" cy="344" rx="28" ry="15"/>' +
     '<path class="mp-sea" d="' + HONSHU_PATH + '"/>' +
@@ -2452,7 +2488,9 @@ function landMapSVG(){
     '<ellipse class="mp-land" cx="512" cy="94" rx="31" ry="27"/>' +
     '<text class="mp-flag" x="150" y="374">🇰🇷 한국</text>' +
     '<text class="mp-flag" x="430" y="330">🇯🇵 일본</text>' +
+    '<text class="mp-flag" x="-176" y="336">🇨🇳 중국</text>' +
     hubDot(SEOUL_HUB, '서울') + hubDot(TOKYO_HUB, '도쿄') +
+    hubDot(BEIJING_HUB, '베이징') + hubDot(SHANGHAI_HUB, '상하이') +
     pins + '</svg>' +
     '<div class="mp-legend"><span><i style="background:#22e6b4"></i>내 땅</span>' +
     '<span><i style="background:#ffc93c"></i>매물</span>' +
@@ -2828,7 +2866,7 @@ async function loadLands(){
 /* ── 재분양 ─────────────────────────────────────────
    모든 땅과 건물을 되돌리고 쓴 돈을 돌려드렸습니다.
    같은 출발선에서 다시 시작하도록 이 시각까지는 아무도 살 수 없습니다. */
-const LAND_OPEN_AT = Date.UTC(2026, 8, 22, 5, 30, 0);     // 한국시간 9월 22일 오후 2시 30분
+const LAND_OPEN_AT = Date.UTC(2026, 8, 23, 3, 10, 0);     // 한국시간 9월 23일 낮 12시 10분
 const landOpen = ()=> Date.now() >= LAND_OPEN_AT;
 function landOpenLeft(){
   const ms = Math.max(0, LAND_OPEN_AT - Date.now());
@@ -2876,10 +2914,10 @@ async function renderLand(){
   const note = $('landNote');
   if(note){
     note.innerHTML = landOpen()
-      ? '한국 10필지 · 일본 8필지, 모두 18필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>' +
+      ? '한국 10필지 · 일본 8필지 · 중국 8필지, 모두 26필지뿐입니다. 먼저 산 사람이 주인이고, 남의 땅은 주인이 매물로 내놓아야 살 수 있습니다.<br>' +
         '<b>땅은 계정에 남습니다</b> — 새 판을 시작해도 그대로입니다. 임대수익은 장이 바뀔 때 들어옵니다.'
       : '🏗️ <b>전체 재분양</b> — 땅과 건물을 모두 되돌리고, 쓰신 돈은 전액 돌려드렸습니다.<br>' +
-        '<b style="color:var(--gold)">오늘 오후 2시 30분</b>부터 다시 사실 수 있습니다 · 남은 시간 ' +
+        '<b style="color:var(--gold)">오늘 낮 12시 10분</b>부터 다시 사실 수 있습니다 · 남은 시간 ' +
         '<b style="color:var(--gold)">' + landOpenLeft() + '</b>';
   }
   el.innerHTML = LANDS.length ? LANDS.map(landRow).join('') : '<div class="empty-msg">불러오지 못했습니다.</div>';
@@ -2898,7 +2936,7 @@ async function renderLand(){
   });
 }
 function buyLand(l){
-  if(!landOpen()) return toast('오후 2시 30분부터 살 수 있습니다 · 남은 시간 ' + landOpenLeft());
+  if(!landOpen()) return toast('낮 12시 10분부터 살 수 있습니다 · 남은 시간 ' + landOpenLeft());
   if(!isUnlocked('land')) return toast('부동산을 먼저 해금해주세요');
   if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 땅을 살 수 있습니다');
   if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
@@ -3429,7 +3467,11 @@ function startLandPoll(){
    그 파일은 저장소 주인만 바꿀 수 있으므로, 접속자가 제멋대로 운영자를 자칭할 수 없습니다.
    admin.json이 아직 없으면 이 브라우저에서만 쓰는 임시 잠금으로 동작하고, 그 사실을 화면에 알립니다. */
 const ADMIN_KEY = 'MONEYROAD_ADMIN_V1';
+const ADMIN_ID = 'square15678';              // 운영자는 이 계정 하나뿐입니다
 let adminOn = false, ADMIN_REMOTE = null, adminRemoteTried = false;
+/* 비밀번호 대신 '누구로 로그인했는가'로 판단합니다.
+   화면은 여기서 막고, 실제 권한은 서버가 app_notice_set 에서 한 번 더 확인합니다. */
+function isAdmin(){ return !!AUTH && AUTH.mode === 'user' && myLc() === ADMIN_ID; }
 
 async function loadAdminRemote(){
   if(adminRemoteTried) return ADMIN_REMOTE;
@@ -3465,37 +3507,29 @@ async function makeAdminJson(pw){                // 패널에서 admin.json 내�
   return JSON.stringify({salt, hash: await hashPw(pw, salt)}, null, 2);
 }
 function openAdmin(){
-  if(!adminOn){
-    const remote = ADMIN_REMOTE;
-    const first = !remote && !adminLocalRec();
-    openModal(`<h2>🔑 운영자 패널</h2>
-      <p style="color:var(--sub);font-size:12.5px;margin:10px 0;line-height:1.8">
-        ${remote ? '저장소에 등록된 운영자 비밀번호를 입력하세요.'
-          : first ? '아직 <b style="color:var(--gold)">admin.json</b>이 없습니다. 지금 입력하는 값이 이 브라우저의 임시 비밀번호가 됩니다.'
-                  : '운영자 비밀번호를 입력하세요.'}</p>
-      <input class="auth-in" id="admPw" type="password" placeholder="운영자 비밀번호 (4자 이상)" maxlength="30" autocomplete="off">
-      <button class="big-btn" id="admGo">${first?'등록하고 열기':'열기'}</button>
-      ${remote?'':`<div class="warnbox" style="margin-top:12px">
-        ⚠️ <b>admin.json을 올리기 전에는</b> 누구나 자기 브라우저에서 운영자 비밀번호를 정할 수 있습니다.<br>
-        패널 안에서 파일 내용을 만들어 저장소에 올리면 그때부터 사장님만 열 수 있습니다.</div>`}
-      <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
-    const go = async ()=>{
-      const e = await adminUnlock($('admPw').value||'');
-      if(e) return toast(e);
-      closeModal(); openAdmin();
-    };
-    $('admGo').onclick = go;
-    $('admPw').onkeydown = ev=>{ if(ev.key==='Enter') go(); };
+  if(!isAdmin()){
+    openModal('<h2>🔑 운영자 패널</h2>' +
+      '<p style="color:var(--sub);font-size:12.5px;margin:12px 0;line-height:1.8">' +
+      '운영자는 <b style="color:var(--gold)">' + ADMIN_ID + '</b> 계정 한 사람뿐입니다.<br>' +
+      (AUTH && AUTH.mode === 'user'
+        ? '지금은 <b>' + esc(AUTH.name) + '</b> 님으로 로그인되어 있습니다.'
+        : '먼저 계정으로 로그인해주세요.') + '</p>' +
+      '<div class="warnbox">비밀번호를 따로 두지 않습니다. 공지를 쓸 때는 서버가 다시 한 번 계정을 확인합니다.</div>' +
+      '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
     return;
   }
-
-  const cur = (()=>{ try{ return JSON.parse(lsGet(NOTICE_LOCAL_KEY)) || {}; }catch(e){ return {}; } })();
+  adminOn = true;
+  openAdminPanel();
+}
+let SRV_NOTICE = {text:'', kind:'info', on:false, by:null};
+async function openAdminPanel(){
+  try{ const j = await rpc('app_notice', {}); if(j) SRV_NOTICE = j; }catch(e){}
   openModal(`<h2>🔑 운영자 패널</h2>
 
     <div class="adminbox">
-      <h3>📢 공지 띄우기</h3>
+      <h3>📢 공지 띄우기 <small style="color:var(--sub);font-weight:600">모든 접속자에게 바로</small></h3>
       <textarea class="auth-in" id="ntText" rows="3" maxlength="160" placeholder="상단에 띄울 공지 내용"
-        style="resize:vertical;font-family:inherit">${esc(cur.text||'')}</textarea>
+        style="resize:vertical;font-family:inherit">${esc(SRV_NOTICE.text||'')}</textarea>
       <div style="display:flex;gap:7px;margin-bottom:9px">
         <select class="auth-in" id="ntType" style="margin:0">
           <option value="info">공지 (파랑)</option>
@@ -3504,14 +3538,11 @@ function openAdmin(){
         </select>
         <button class="mini-btn" id="ntOff" style="flex:0 0 auto;padding:0 14px">내리기</button>
       </div>
-      <button class="big-btn" id="ntPreview">이 브라우저에 미리 띄우기</button>
-      <p style="color:var(--sub);font-size:11.5px;margin:12px 0 6px;line-height:1.75">
-        <b style="color:var(--txt)">모든 접속자에게 띄우려면</b> 아래 내용을 저장소의
-        <b style="color:var(--gold)">notice.json</b> 파일에 넣으면 됩니다.</p>
-      <div class="codebox" id="ntJson"></div>
-      <div style="display:flex;gap:7px;margin-top:8px">
-        <button class="mini-btn" id="ntCopy" style="flex:1">📋 JSON 복사</button>
-        <a class="mini-btn" id="ntEdit" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">GitHub에서 편집</a>
+      <button class="big-btn" id="ntPost">📢 모두에게 띄우기</button>
+      <div class="warnbox" style="margin-top:12px">
+        지금 서버 공지: ${SRV_NOTICE.on ? '<b style="color:var(--mint)">띄워져 있음</b>' : '<b style="color:var(--sub)">내려져 있음</b>'}
+        ${SRV_NOTICE.by ? ' · 마지막 작성 ' + esc(SRV_NOTICE.by) : ''}<br>
+        접속자들은 1분 안에 새 공지를 봅니다.
       </div>
     </div>
 
@@ -3550,17 +3581,11 @@ create policy "wipe" on messages for delete using (true);</div>
     </div>
 
     <div class="adminbox">
-      <h3>🔐 운영자 비밀번호 고정하기</h3>
-      <p style="color:var(--sub);font-size:11.5px;line-height:1.75;margin-bottom:9px">
-        ${ADMIN_REMOTE ? '현재 저장소의 <b style="color:var(--gold)">admin.json</b>이 기준입니다. 비밀번호를 바꾸려면 새로 만들어 올리세요.'
-          : '아직 <b style="color:#ffb3c0">admin.json이 없어 누구나 운영자를 자칭할 수 있습니다.</b> 아래로 파일을 만들어 저장소에 올리세요.'}</p>
-      <input class="auth-in" id="admNew" type="password" placeholder="정할 운영자 비밀번호 (4자 이상)" maxlength="30" autocomplete="off">
-      <button class="mini-btn" id="admGen" style="width:100%;margin-bottom:9px">admin.json 내용 만들기</button>
-      <div class="codebox" id="admJson">비밀번호를 입력하고 버튼을 누르세요.</div>
-      <div style="display:flex;gap:7px;margin-top:8px">
-        <button class="mini-btn" id="admCopy" style="flex:1">📋 복사</button>
-        <a class="mini-btn" id="admEdit" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">GitHub에서 만들기</a>
-      </div>
+      <h3>🔐 운영자</h3>
+      <p style="color:var(--sub);font-size:11.5px;line-height:1.75">
+        운영자는 <b style="color:var(--gold)">${ADMIN_ID}</b> 계정으로 고정되어 있습니다.
+        비밀번호를 따로 두지 않으므로 admin.json 도 필요 없습니다.<br>
+        공지를 쓸 때 서버가 계정을 다시 확인하므로, 다른 사람이 이 화면을 억지로 열어도 공지는 바뀌지 않습니다.</p>
     </div>
 
     <p style="color:var(--mint);font-size:12px;text-align:center;margin:4px 0 10px">
@@ -3569,30 +3594,22 @@ create policy "wipe" on messages for delete using (true);</div>
     <button class="ghost-btn" onclick="closeModal()">닫기</button>`);
 
   $('ntType').value = cur.type || 'info';
-  const repo = 'https://github.com/WOOCHY338/moneyroad/edit/main/notice.json';
-  const buildJson = ()=> JSON.stringify({
-    on: true,
-    text: ($('ntText').value||'').trim(),
-    type: $('ntType').value,
-    id: 'n' + (($('ntText').value||'').trim().length) + '-' + ($('ntText').value||'').trim().slice(0,12)
-  }, null, 2);
-  const refresh = ()=>{ $('ntJson').textContent = buildJson(); };
-  refresh();
-  $('ntText').oninput = refresh; $('ntType').onchange = refresh;
-  $('ntEdit').href = repo;
-  $('ntCopy').onclick = ()=>{ try{ navigator.clipboard.writeText(buildJson()); toast('📋 복사했습니다'); }catch(e){ toast('복사 실패 — 직접 선택해 복사해주세요'); } };
+  $('ntType').value = SRV_NOTICE.kind || 'info';
   $('sqlCopy').onclick = ()=>{ try{ navigator.clipboard.writeText($('sqlBox').textContent); toast('📋 SQL을 복사했습니다'); }catch(e){ toast('복사 실패'); } };
-  $('ntPreview').onclick = async ()=>{
+  const postNotice = async (on)=>{
     const t = ($('ntText').value||'').trim();
-    if(!t) return toast('공지 내용을 입력해주세요');
-    lsSet(NOTICE_LOCAL_KEY, JSON.stringify({on:true, text:t, type:$('ntType').value, id:'n'+t.length+'-'+t.slice(0,12)}));
-    lsDel(NOTICE_SEEN_KEY);
-    closeModal(); await initNotice(); toast('📢 공지를 띄웠습니다 (이 브라우저)');
+    if(on && !t) return toast('공지 내용을 입력해주세요');
+    try{
+      const r = await rpc('app_notice_set', {p_user:AUTH.name, p_token:SRV_TOKEN,
+        p_text:t, p_kind:$('ntType').value, p_on:!!on});
+      if(!r.ok) return toast(r.err || '보내지 못했습니다');
+      lsDel(NOTICE_SEEN_KEY);
+      closeModal(); await initNotice();
+      toast(on ? '📢 모든 접속자에게 공지를 띄웠습니다' : '공지를 내렸습니다');
+    }catch(e){ toast('실패: ' + e.message); }
   };
-  $('ntOff').onclick = async ()=>{
-    lsDel(NOTICE_LOCAL_KEY); lsDel(NOTICE_SEEN_KEY);
-    closeModal(); await initNotice(); toast('공지를 내렸습니다 (로컬)');
-  };
+  once('ntPost', ()=>postNotice(true));
+  once('ntOff',  ()=>postNotice(false));
   const commJson = ()=> JSON.stringify({
     on: true,
     url: ($('cmUrl').value||'').trim().replace(/\/$/,''),
@@ -3777,6 +3794,17 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'4.2.0', date:'2026-09-23', title:'중국 진출 · 운영자 개편 · 공지 서버화',
+    items:[
+      ['new','🇨🇳 중국 8필지가 열렸습니다 — 궈마오 · 루자쭈이 · 왕푸징 · 난징둥루 · 중관춘 · 선전만 · 광저우 톈허청 · 청두 춘시루'],
+      ['new','지도에 중국이 함께 표시됩니다. 베이징과 상하이에 몰린 곳은 부챗살로 펼칩니다'],
+      ['del','모든 땅의 소유권과 건물을 되돌렸습니다. 땅값과 건축비 · 증축비 · 연구비 · 재고는 전액 돌려드렸습니다'],
+      ['chg','오늘 낮 12시 10분부터 다시 살 수 있습니다. 그때까지는 아무도 살 수 없어 모두 같은 출발선입니다'],
+      ['chg','운영자가 square15678 계정 한 사람으로 고정되었습니다. 비밀번호를 따로 두지 않습니다'],
+      ['fix','예전에는 admin.json 이 없으면 누구나 자기 브라우저에서 운영자를 자칭할 수 있었습니다'],
+      ['new','공지가 서버로 옮겨졌습니다. 운영자가 패널에서 쓰면 모든 접속자가 1분 안에 보게 됩니다'],
+      ['chg','공지를 쓸 때 서버가 계정을 다시 확인합니다. 화면을 억지로 열어도 남이 공지를 바꿀 수는 없습니다'],
+    ]},
   { v:'4.1.1', date:'2026-09-23', title:'버그 수정 — 금액 표시 · 최대 매수',
     items:[
       ['fix','값이 망가지면 화면에 그대로 NaN원 이 찍혔습니다. 이제 0원으로 보여줍니다'],

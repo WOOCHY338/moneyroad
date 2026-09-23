@@ -1639,11 +1639,48 @@ function accountStats(){
     Object.values(g.holdings||{}).forEach(h=>{ sh += (h.qty||0); });
   });
   if(G){ const v = netWorthOf(G); if(v > nw) nw = v; }
-  // 땅은 계정 자산이므로 슬롯 순자산에 한 번만 더한다
-  if(typeof myLands === 'function'){
-    nw += myLands().reduce((a,l)=>a + Number(l.base_price||0), 0);
-  }
+  // 땅·건물·광산은 계정 자산이므로 슬롯 순자산에 한 번만 더한다
+  nw += estateValue();
   return { nw: Math.round(nw), sh };
+}
+/* 계정이 들고 있는 부동산·광산의 값어치.
+   땅값 + 그동안 건물·갱도에 쏟아부은 돈 + 창고에 쌓인 광물까지 셉니다.
+   이게 빠져 있어서 부동산에 투자할수록 랭킹이 내려갔습니다. */
+let estateCache = 0;
+function estateValue(){
+  // 목록을 아직 못 불러온 사이에 0 으로 떨어지면 랭킹이 출렁입니다. 마지막 값을 씁니다.
+  if(!LANDS.length && !MINES.length) return estateCache;
+  let v = 0;
+  try{
+    myLands().forEach(l=>{
+      v += Number(l.base_price || 0);
+      if(l.bld_level > 0 && BLD[l.bld_type]){
+        const build = bldCost(l, l.bld_type);
+        v += build;                                                   // 건축비
+        const lv = l.bld_level || 1;
+        v += Math.round(build * 0.8 * (lv - 1) * lv / 2);             // 증축 누적
+        if(l.bld_type === 'corp'){
+          const plv = l.bld_plv || 1;
+          v += Math.round(Number(l.base_price) * 0.08 * (plv - 1) * plv / 2);  // 연구 누적
+          v += Number(l.bld_rnd || 0);
+        }
+        if(l.bld_type === 'shop') v += (l.bld_stock || 0) * unitCostOf(l);     // 재고
+      }
+    });
+  }catch(e){}
+  try{
+    myMines().forEach(m=>{
+      v += Number(m.base_price || 0);
+      const d = m.depth || 1;
+      v += Math.round(Number(m.base_price) * 0.30 * (d - 1) * d / 2);         // 굴착 누적
+      const sf = m.safety || 0;
+      v += Math.round(Number(m.base_price) * 0.12 * sf * (sf + 1) / 2);       // 안전 설비 누적
+      v += Math.floor(Number(m.stock || 0)) * orePrice(m);                    // 창고
+      v += (m.npc || 0) * npcHire(m);                                          // 고용비
+    });
+  }catch(e){}
+  estateCache = v;
+  return v;
 }
 function sbHeaders(extra){
   return Object.assign({apikey:COMM.key, Authorization:'Bearer '+COMM.key,
@@ -2132,7 +2169,7 @@ function openShip(m){
 /* ── 3분 정산: 캐고, 임금 주고, 가끔 무너집니다 */
 async function collectMines(){
   if(!G || !myLc() || !isUnlocked('mine') || !(srvMode && SRV_TOKEN)) return;
-  await loadMines();
+  await loadMines(); await loadJobs();          // JOBS 가 비어 있으면 유저 광부가 없는 걸로 계산됩니다
   const list = myMines();
   if(!list.length) return;
   let pay = 0; const lines = [];
@@ -2147,17 +2184,18 @@ async function collectMines(){
 
     let stock = Math.floor(Number(m.stock||0));
     const cap = storeCap(m);
-    let dug = 0, boom = false;
+    let dug = 0, boom = false, ran = 0;
     const slot0 = Math.floor(Date.now() / MINE_SLOT_MS) - n;
     for(let i = 0; i < n; i++){
       // 붕괴 판정 — (광구, 정산 회차) 시드라서 누가 계산해도 같습니다
       const r = mulberry32(((hashStr(m.id) * 0x9E3779B1) ^ ((slot0 + i) * 0xC2B2AE35)) >>> 0);
       if(r() < collapseRisk(m)){ boom = true; break; }
+      ran++;
       const got = mineYield(m);
       dug += Math.min(got, Math.max(0, cap - stock));
       stock = Math.min(cap, stock + got);
     }
-    const wage = mineWage(m) * (boom ? 1 : n);
+    const wage = mineWage(m) * Math.max(1, ran);
     pay += wage;
 
     const patch = {stock, paid:1};
@@ -2175,13 +2213,30 @@ async function collectMines(){
 
     // 유저 광부 급여는 실제로 보냅니다
     for(const j of myMiners(m.id)){
-      const w = Math.floor(Number(j.wage)||0) * (boom ? 1 : n);
-      if(w > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (광부 임금)', to_lc:j.worker_name.toLowerCase(), amount:w}); }catch(e){} }
+      const w = Math.floor(Number(j.wage)||0) * Math.max(1, ran);
+      if(w > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (광부 임금)', to_lc:(j.worker_lc || j.worker_name.toLowerCase()), amount:w}); }catch(e){} }
     }
   }
-  if(pay > 0){ G.cash = Math.max(0, G.cash - pay); saveGame(true); renderAll(); }
+  if(pay > 0){
+    if(G.cash < pay){                                   // 임금을 못 주면 광부가 떠납니다
+      const short = pay - G.cash;
+      G.cash = 0;
+      for(const m of list){
+        if(!(m.npc > 0)) continue;
+        const gone = Math.max(1, Math.ceil((m.npc||0) * 0.34));
+        const left = Math.max(0, (m.npc||0) - gone);
+        try{ await rpc('app_mine_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:m.id, p_patch:{npc:left}}); }catch(e){}
+        lines.push('💸 ' + m.name + ' 임금 체불 — 광부 ' + gone + '명이 떠났습니다');
+        break;
+      }
+      toast('💸 임금 ' + fmtW(short) + '이 모자랍니다 — 광부가 떠나고 있습니다');
+    }else{
+      G.cash -= pay;
+    }
+    saveGame(true); renderAll();
+  }
   if(lines.length) toast(lines.slice(0,2).join(' · ') + (pay ? ' · 임금 ' + fmtW(pay) : ''));
-  renderMine();
+  if($('tab-mine') && $('tab-mine').classList.contains('on') && !$('modal').classList.contains('on')) renderMine();
 }
 function startMinePoll(){
   if(mineTimer) clearInterval(mineTimer);
@@ -3197,12 +3252,24 @@ async function collectBuildings(){
     // 유저 직원 급여는 실제로 보낸다
     for(const j of myStaff(l.id)){
       const pay = Math.floor(Number(j.wage)||0) * n;
-      if(pay > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (급여)', to_lc:j.worker_name.toLowerCase(), amount:pay}); }catch(e){} }
+      if(pay > 0){ try{ await sbPost('transfers', {from_lc:myLc(), from_name:AUTH.name + ' (급여)', to_lc:(j.worker_lc || j.worker_name.toLowerCase()), amount:pay}); }catch(e){} }
     }
     total += gain;
     if(gain !== 0) lines.push((l.bld_name||BLD[l.bld_type].nm) + ' ' + (gain>0?'+':'') + Math.round(gain).toLocaleString());
   }
-  if(total !== 0){
+  if(total < 0 && G.cash < -total){          // 적자를 낼 돈이 없으면 직원이 떠납니다
+    const short = -total - G.cash;
+    G.cash = 0;
+    for(const l of myLands()){
+      if(!(l.bld_emp > 0)) continue;
+      const gone = Math.max(1, Math.ceil(l.bld_emp * 0.34));
+      try{ await rpc('app_bld_set', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:l.id, p_patch:{emp:Math.max(0, l.bld_emp - gone)}}); }catch(e){}
+      lines.push('💸 ' + (l.bld_name || l.name) + ' 임금 체불 — 직원 ' + gone + '명이 떠났습니다');
+      break;
+    }
+    toast('💸 인건비 ' + fmtW(short) + '이 모자랍니다 — 직원이 떠나고 있습니다');
+    saveGame(true); renderAll(); renderLand();
+  }else if(total !== 0){
     G.cash = Math.max(0, G.cash + total);
     saveGame(true); renderAll();
     toast((total>0?'🏗️ 건물 수익 ':'📉 건물 적자 ') + fmtW(Math.abs(total)) + ' · ' + lines.slice(0,2).join(', '));
@@ -3490,7 +3557,10 @@ function totalAssetOf(g){
   }
   return v;
 }
-function netWorthOf(g){ return totalAssetOf(g) - (g.debt||0); }   // 순자산 = 평가자산 - 부채
+function netWorthOf(g){ return totalAssetOf(g) - (g.debt||0); }   // 유동 순자산 — 대출·마진콜 판단용
+/* 화면에 보여주는 순자산. 땅·건물·광산까지 합쳐 랭킹과 같은 값이 되게 합니다.
+   다만 당장 팔 수 없는 자산이라 대출 한도나 마진콜에는 쓰지 않습니다. */
+function netWorthShown(g){ return netWorthOf(g) + (g === G ? estateValue() : 0); }
 function renderSlots(){
   const slots = loadSlots();
   const ranked = slots.map((g,i)=>({i, v:g?netWorthOf(g):null})).filter(o=>o.v!==null).sort((a,b)=>b.v-a.v);
@@ -3597,6 +3667,18 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.2', date:'2026-09-23', title:'버그 수정 — 순자산 · 일자리 · 임금',
+    items:[
+      ['fix','순자산에 건물과 광산이 빠져 있었습니다. 4억짜리 광구를 사면 랭킹에서 4억이 그냥 사라졌습니다. 부동산에 투자할수록 순위가 내려가던 문제입니다'],
+      ['fix','상단에 보이는 순자산과 랭킹 순자산이 서로 다른 값이었습니다. 이제 같습니다. 숫자에 마우스를 올리면 금융자산과 부동산이 나뉘어 보입니다'],
+      ['chg','대출 한도와 마진콜은 예전처럼 현금·주식만 봅니다. 땅은 당장 팔 수 없으니 담보로 치지 않습니다'],
+      ['fix','땅이나 광산을 팔아도 직원 계약이 남아 유령 일자리가 됐습니다. 새로고침해도 급여가 영영 안 나왔습니다. 주인이 바뀌면 계약이 정리되고, 이미 생긴 유령 계약도 치웠습니다'],
+      ['fix','새로고침 직후 3분 안에 정산이 돌면 유저 광부가 없는 것으로 계산되어 산출이 깎이고 급여도 안 나갔습니다'],
+      ['fix','급여를 보낼 때 아이디 대신 표시 이름을 소문자로 바꿔 쓰고 있었습니다. 둘이 다르면 엉뚱한 사람에게 갔습니다'],
+      ['new','임금 낼 돈이 없으면 이제 광부와 직원이 떠납니다. 예전에는 잔고가 0이 되고 끝이라 공짜로 부릴 수 있었습니다'],
+      ['fix','붕괴가 정산 중간에 나도 임금은 한 번치만 내고 있었습니다. 실제로 돌린 만큼 냅니다'],
+      ['fix','새 버전 자동 새로고침이 창을 열어 둔 중에도 그냥 새로고침했습니다. 이제 창을 닫을 때까지 기다립니다'],
+    ]},
   { v:'3.1', date:'2026-09-23', title:'실제 주식처럼 — 변동폭 정상화',
     items:[
       ['chg','한 장(30분)을 실제 주식 1년치로 맞췄습니다. 하루아침에 재산이 열 배가 되거나 0이 되는 일은 이제 없습니다'],
@@ -3806,11 +3888,14 @@ async function checkVersion(){
     const j = await r.json();
     const v = j && j.v ? String(j.v) : '';
     if(!v || v === APP_VERSION) return;
-    toast('🔄 새 버전 ' + v + ' 이 나왔습니다 · 5초 뒤 새로고침합니다');
-    verTimer = setTimeout(()=>{
+    toast('🔄 새 버전 ' + v + ' 이 나왔습니다 · 곧 새로고침합니다');
+    const go = ()=>{
+      // 창을 열어 두고 뭔가 하는 중이면 끝날 때까지 기다립니다
+      if($('modal') && $('modal').classList.contains('on')){ verTimer = setTimeout(go, 3000); return; }
       try{ if(typeof G !== 'undefined' && G) saveGame(true); }catch(e){}
       location.reload();
-    }, 5000);
+    };
+    verTimer = setTimeout(go, 5000);
   }catch(e){ /* 오프라인이면 조용히 넘어갑니다 */ }
   finally{ verBusy = false; }
 }
@@ -4285,7 +4370,10 @@ function renderAll(){
   $('uEval').textContent = fmtW(evalV);
   $('uDebt').textContent = G.debt>0 ? '-'+fmtW(G.debt) : '없음';
   $('uDebt').style.color = G.debt>0 ? 'var(--up)' : 'var(--sub)';
-  $('uTotal').textContent = fmtW(nw);
+  const shown = netWorthShown(G);
+  $('uTotal').textContent = fmtW(shown);
+  $('uTotal').title = shown !== nw
+    ? ('금융자산 ' + fmtW(nw) + ' + 부동산·광산 ' + fmtW(shown - nw)) : '';
   $('uRoi').textContent = sign(roi)+'%'; $('uRoi').className='v '+clsOf(roi);
   $('uFx').textContent = Math.round(G.fx).toLocaleString()+'원/$';
   renderNavLocks();

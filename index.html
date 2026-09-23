@@ -2743,6 +2743,7 @@ function corpPrice(l){
   const mom = sectorMomentum(l.bld_sector || '반도체');
   return Math.max(10, p0 * jitter * (1 + mom * 0.35));
 }
+const cleanName = t => String(t||'').replace(/[<>]/g,'').slice(0,24);
 function buildCorpStocks(){
   CORP = LANDS.filter(l => l.bld_type === 'corp' && l.bld_level > 0).map(l=>{
     const px = corpPrice(l);
@@ -2751,7 +2752,7 @@ function buildCorpStocks(){
     const hist = old ? old.hist.slice() : [];
     hist.push(px); if(hist.length > 240) hist.shift();
     return {
-      id: 'C_' + l.id, name: l.bld_name || '무명기업', mkt: 'KR', sec: l.bld_sector || '기타',
+      id: 'C_' + l.id, name: cleanName(l.bld_name) || '무명기업', mkt: 'KR', sec: cleanName(l.bld_sector) || '기타',
       ico: '🏢', price: px, base: px, prev, vol: 0.03, drift: 0, dead: false,
       hist, corp: true, landId: l.id, ceo: l.owner_name, lv: l.bld_level, plv: l.bld_plv || 1
     };
@@ -2961,7 +2962,9 @@ async function upgradeBuild(l){
   };
 }
 function razeBuild(l){
-  openModal('<h2>🧨 ' + esc(l.name) + ' 철거</h2>' +
+  const _shareWarn = (l.bld_type==='corp' && CORP.some(c=>c.landId===l.id))
+    ? '<div class="warnbox" style="margin-bottom:10px;color:#ff8a9c">이 회사는 국내주식에 상장되어 있습니다. 헐면 상장폐지되고, 주주들에게는 산 값이 환불됩니다.</div>' : '';
+  openModal('<h2>🧨 ' + esc(l.name) + ' 철거</h2>' + _shareWarn +
     '<p style="color:var(--sub);font-size:13px;margin:10px 0;line-height:1.8">' +
     BLD[l.bld_type].nm + ' Lv' + l.bld_level + '을(를) 철거합니다.<br>' +
     '<b style="color:#ffb3c0">건축비는 돌려받지 못합니다.</b></p>' +
@@ -3703,6 +3706,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.4', date:'2026-09-23', title:'버그 수정 — 사라진 회사 주식 · 보안',
+    items:[
+      ['fix','사장이 회사를 헐거나 땅을 팔면 그 주식이 목록에서만 사라지고 계좌에는 남았습니다. 팔 수도 없고 자산에도 안 잡히는 좀비가 되어 돈이 그냥 증발했습니다'],
+      ['new','이제 회사가 사라지면 주주에게 산 값을 그대로 돌려드립니다. 주주는 잘못이 없으니까요'],
+      ['new','회사를 헐 때, 상장되어 있으면 상장폐지된다는 안내가 먼저 뜹니다'],
+      ['fix','회사 이름과 업종이 포트폴리오 표와 매매 창에서 그대로 출력되고 있었습니다. 이름에 코드를 심으면 남의 화면에서 돌아갈 수 있었습니다. 이제 걸러서 보여주고, 저장할 때도 한 번 더 거릅니다'],
+    ]},
   { v:'3.3', date:'2026-09-23', title:'버그 수정 — 파산 판정 · 끊김 · 탭 중복',
     items:[
       ['fix','부동산에 전 재산을 넣으면 현금이 마르는 순간 파산 판정을 받았습니다. 땅은 팔면 되는 자산인데 게임이 끝나 버렸습니다'],
@@ -4272,6 +4282,23 @@ function syncMarket(){
     }
   });
 
+  /* 사장이 회사를 헐거나 땅을 팔면 그 종목이 목록에서 사라집니다.
+     그대로 두면 팔 수도 없고 자산에도 안 잡히는 좀비 주식이 됩니다.
+     주주는 잘못이 없으니 산 값 그대로 돌려드립니다.
+     (목록을 아직 못 불러왔을 때 오작동하지 않도록 LANDS 가 있을 때만 판정합니다) */
+  if(LANDS.length){
+    Object.keys(G.holdings).forEach(id=>{
+      if(!String(id).startsWith('C_')) return;
+      const h = G.holdings[id];
+      if(!h || !(h.qty > 0)) return;
+      if(CORP.some(c=>c.id === id)) return;                 // 아직 살아 있는 회사
+      const back = Math.round(Number(h.krw) || (Number(h.avg)||0) * h.qty);
+      delete G.holdings[id];
+      if(back > 0) G.cash += back;
+      toast('🏢 상장한 회사가 사라져 ' + h.qty + '주를 산 값 ' + fmtW(back) + '에 되돌려드렸습니다');
+    });
+  }
+
   // 새로 올라온 속보를 배너로 알린다
   const top = MARKET.news[0];
   const key = top ? (top.session+'#'+top.t+'#'+top.head) : '';
@@ -4476,7 +4503,7 @@ function renderPortfolio(){
     const cur = s.mkt==='US'? s.price*G.fx : s.price;
     const avg = s.mkt==='US'? h.avg*G.fx : h.avg;
     const {pl, rt} = plOf(s,h);
-    return `<tr><td>${s.ico} ${s.name}<br><span style="font-size:10.5px;color:var(--sub)">${s.mkt==='US'?'해외':'국내'} · ${s.sec}</span></td>
+    return `<tr><td>${esc(s.ico)} ${esc(s.name)}<br><span style="font-size:10.5px;color:var(--sub)">${s.mkt==='US'?'해외':'국내'} · ${esc(s.sec)}</span></td>
       <td>${h.qty.toLocaleString()}주</td>
       <td>${Math.round(avg).toLocaleString()}</td>
       <td>${Math.round(cur).toLocaleString()}</td>
@@ -4662,8 +4689,8 @@ document.addEventListener('click', e=>{
 function openTrade(id){
   openStockId=id; tradeQty=1;
   const s=findStock(id); if(!s) return;
-  openModal(`<h2>${s.ico} ${s.name}</h2>
-    <div style="font-size:11.5px;color:var(--sub);margin-top:3px">${s.mkt==='US'?'해외':'국내'} · ${s.sec} · ${s.id}</div>
+  openModal(`<h2>${esc(s.ico)} ${esc(s.name)}</h2>
+    <div style="font-size:11.5px;color:var(--sub);margin-top:3px">${s.mkt==='US'?'해외':'국내'} · ${esc(s.sec)} · ${esc(s.id)}</div>
     <canvas class="chartbox" id="stockChart"></canvas>
     <div id="tradeInfo"></div>
     <div class="qty">

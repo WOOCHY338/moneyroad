@@ -115,6 +115,31 @@ input{font-family:inherit}
 .staff button{padding:5px 9px;border-radius:7px;font-size:11px;background:#2a1220;border:1px solid #57263a;color:#ff8a9c}
 .warn-red{color:#ff8a9c}
 
+/* ===== 대결 ===== */
+.duel-wrap{text-align:center}
+.duel-stage{background:#0a1020;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.duel-vs{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px 0 14px}
+.duel-vs .who{flex:1;background:#121c30;border-radius:11px;padding:11px 8px;font-weight:800;font-size:13.5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.duel-vs .who.me{background:#0f2a1f;color:var(--mint)}
+.duel-vs .x{font-size:18px;font-weight:900;color:var(--gold);flex:0 0 auto}
+.duel-pot{font-size:19px;font-weight:900;color:var(--gold);margin-bottom:4px}
+.duel-modes{display:flex;gap:9px;margin:12px 0}
+.duel-modes button{flex:1;padding:14px 8px;border-radius:12px;background:#121c30;border:1px solid var(--line);
+  font-weight:800;font-size:13.5px;line-height:1.6}
+.duel-modes button.on{background:linear-gradient(135deg,var(--gold),#ff9d2e);color:#301f00;border-color:transparent}
+.duel-modes small{display:block;font-weight:600;font-size:11px;color:var(--sub);margin-top:4px}
+.duel-modes button.on small{color:#5a3c00}
+#jumpCv{display:block;margin:0 auto;border-radius:12px;background:#070c17;touch-action:none;max-width:100%}
+.jump-keys{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.jump-keys button{flex:1;max-width:96px;padding:15px 0;font-size:19px;border-radius:12px;background:#17233a;border:1px solid var(--line)}
+.mem-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:330px;margin:0 auto}
+.mem-card{aspect-ratio:1;border-radius:11px;background:#17233a;border:1px solid var(--line);
+  font-size:25px;display:grid;place-items:center;cursor:pointer;transition:background .12s}
+.mem-card.up{background:#1d2c48}
+.mem-card.got{background:#0f2a1f;cursor:default}
+.duel-timer{font-size:13px;color:var(--sub);margin-top:9px}
+
 /* ===== 광산 ===== */
 .oreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-bottom:14px}
 .orecard{background:#0a1020;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
@@ -689,6 +714,17 @@ tr:last-child td{border-bottom:none}
       <div class="panel" id="jobPanel" hidden>
         <h3>💼 일자리 <small>받은 제안과 내 근무</small></h3>
         <div id="jobList"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-duel">
+      <div class="panel">
+        <h3>⚔️ 대결 <small id="duelMode">-</small></h3>
+        <div class="warnbox" id="duelNote" style="margin:0 0 12px">
+          둘이 같은 금액을 걸고 붙습니다. <b>먼저 끝낸 사람이 판돈을 다 가져갑니다.</b><br>
+          매칭을 누르면 같은 금액을 건 사람을 찾습니다.
+        </div>
+        <div id="duelBox"></div>
       </div>
     </div>
 
@@ -2339,6 +2375,282 @@ function startMinePoll(){
   }, 20000);
 }
 
+/* ==================== 대결 ====================
+   둘이 같은 금액을 걸고 붙습니다. 먼저 끝낸 사람이 판돈을 다 가져갑니다.
+   방과 승패는 서버가 정하고, 게임 자체는 각자 화면에서 돌립니다.
+   같은 판을 보도록 서버가 준 씨앗으로 맵과 카드를 만듭니다.               */
+let DUEL = null, duelTimer = null, duelBet = 10000, duelStaked = false;
+
+function duelReady(){ return usersReady() && !!G; }
+
+async function duelPoll(){
+  if(!DUEL || !duelReady()) return;
+  try{
+    const r = await rpc('app_duel_state', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:DUEL.id});
+    if(!r.ok){ DUEL = null; stopDuelPoll(); return renderDuel(); }
+    const was = DUEL.status;
+    DUEL = r;
+    if(was !== r.status) renderDuel();
+    if(r.status === 'done' || r.status === 'cancelled') stopDuelPoll();
+  }catch(e){}
+}
+function startDuelPoll(){
+  if(duelTimer) clearInterval(duelTimer);
+  duelTimer = setInterval(duelPoll, 2000);
+}
+function stopDuelPoll(){ if(duelTimer) clearInterval(duelTimer); duelTimer = null; }
+
+async function duelJoin(){
+  if(!duelReady()) return toast('계정으로 로그인해야 대결할 수 있습니다');
+  const bet = Math.floor(Number($('duelBet').value)||0);
+  if(bet < 1000) return toast('최소 1,000원부터 걸 수 있습니다');
+  if(bet > G.cash) return toast('현금이 부족합니다');
+  duelBet = bet;
+  try{
+    const r = await rpc('app_duel_join', {p_user:AUTH.name, p_token:SRV_TOKEN, p_bet:bet});
+    if(!r.ok) return toast(r.err || '매칭에 실패했습니다');
+    DUEL = {id:r.id, status:r.status, bet:bet};
+    duelStaked = false;
+    startDuelPoll(); await duelPoll(); renderDuel();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+async function duelCancel(){
+  if(!DUEL) return;
+  try{ await rpc('app_duel_cancel', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:DUEL.id}); }catch(e){}
+  DUEL = null; stopDuelPoll(); renderDuel();
+}
+async function duelVote(mode){
+  if(!DUEL) return;
+  try{
+    const r = await rpc('app_duel_vote', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:DUEL.id, p_mode:mode});
+    if(!r.ok) return toast(r.err || '고르지 못했습니다');
+    await duelPoll(); renderDuel();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+async function duelFinish(){
+  if(!DUEL || DUEL.status !== 'playing') return;
+  try{
+    const r = await rpc('app_duel_finish', {p_user:AUTH.name, p_token:SRV_TOKEN, p_id:DUEL.id});
+    if(!r.ok) return toast(r.err || '기록하지 못했습니다');
+    await duelPoll(); renderDuel();
+  }catch(e){ toast('실패: ' + e.message); }
+}
+
+/* 판돈은 시작할 때 한 번만 빠집니다. 이기면 서버가 두 배로 돌려줍니다. */
+function duelStake(){
+  if(duelStaked || !DUEL) return;
+  duelStaked = true;
+  G.cash = Math.max(0, G.cash - Number(DUEL.bet||0));
+  saveGame(true); renderAll();
+}
+
+function renderDuel(){
+  const el = $('duelBox'); if(!el) return;
+  const mode = $('duelMode');
+  if(!commOnline()){ if(mode) mode.textContent='서버 미연결'; el.innerHTML='<div class="empty-msg">대결은 서버에 연결해야 할 수 있습니다.</div>'; return; }
+  if(!duelReady()){ if(mode) mode.textContent='로그인 필요'; el.innerHTML='<div class="empty-msg">계정으로 로그인하면 대결할 수 있습니다.</div>'; return; }
+
+  if(!DUEL){
+    if(mode) mode.textContent = '상대를 기다리는 중이 아닙니다';
+    el.innerHTML = '<div class="duel-wrap"><div class="duel-stage">' +
+      '<div style="font-size:13px;color:var(--sub);margin-bottom:9px">걸 금액을 정하고 매칭을 누르세요</div>' +
+      '<input class="auth-in" id="duelBet" type="number" min="1000" step="1000" value="' + duelBet + '" aria-label="걸 금액">' +
+      '<div class="bet-row" style="margin-bottom:10px">' +
+      '<button data-db="10000">1만</button><button data-db="100000">10만</button>' +
+      '<button data-db="1000000">100만</button><button data-db="half">절반</button></div>' +
+      '<button class="big-btn" id="duelGo">⚔️ 매칭 시작</button>' +
+      '</div><div class="warnbox">같은 금액을 건 사람과 붙습니다. 3분 안에 상대가 없으면 매칭이 취소됩니다.</div></div>';
+    document.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>{
+      $('duelBet').value = b.dataset.db==='half' ? Math.max(1000, Math.floor(G.cash/2)) : b.dataset.db;
+    });
+    once('duelGo', duelJoin);
+    return;
+  }
+
+  const meNo = DUEL.me || 1;
+  const myName = meNo === 1 ? DUEL.p1 : DUEL.p2;
+  const opName = meNo === 1 ? DUEL.p2 : DUEL.p1;
+  const pot = '<div class="duel-pot">판돈 ' + fmtW(Number(DUEL.bet||0) * 2) + '</div>' +
+              '<div style="font-size:12px;color:var(--sub)">각자 ' + fmtW(DUEL.bet) + '씩</div>';
+  const vs = '<div class="duel-vs"><div class="who me">' + esc(myName||'나') + '</div>' +
+             '<div class="x">VS</div><div class="who">' + esc(opName||'…') + '</div></div>';
+
+  if(DUEL.status === 'waiting'){
+    if(mode) mode.textContent = '상대를 찾는 중';
+    el.innerHTML = '<div class="duel-wrap"><div class="duel-stage">' + pot +
+      '<div style="margin:18px 0;font-size:15px;font-weight:800">🔍 같은 금액을 건 상대를 찾고 있습니다…</div>' +
+      '<div class="duel-timer">다른 사람이 같은 금액으로 매칭을 누르면 바로 시작됩니다</div>' +
+      '</div><button class="ghost-btn" id="duelX">매칭 취소</button></div>';
+    $('duelX').onclick = duelCancel;
+    return;
+  }
+
+  if(DUEL.status === 'picking'){
+    if(mode) mode.textContent = '상대를 만났습니다 — 모드를 고르세요';
+    const myVote = meNo === 1 ? DUEL.p1_vote : DUEL.p2_vote;
+    const opVote = meNo === 1 ? DUEL.p2_vote : DUEL.p1_vote;
+    el.innerHTML = '<div class="duel-wrap"><div class="duel-stage">' + pot + vs +
+      '<div class="duel-modes">' +
+      '<button data-dm="jump"' + (myVote==='jump'?' class="on"':'') + '>🏃 점프맵<small>발판을 밟고 끝까지</small></button>' +
+      '<button data-dm="memory"' + (myVote==='memory'?' class="on"':'') + '>🧠 메모리<small>같은 그림 8쌍 맞추기</small></button>' +
+      '</div>' +
+      '<div class="duel-timer">' + (myVote ? '고르셨습니다 — ' : '먼저 고르세요 — ') +
+      (opVote ? '상대도 골랐습니다' : '상대를 기다리는 중') + '</div>' +
+      '<div class="duel-timer">둘이 다르게 고르면 방을 연 사람 쪽으로 정해집니다</div>' +
+      '</div><button class="ghost-btn" id="duelX">그만두기</button></div>';
+    document.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>duelVote(b.dataset.dm));
+    $('duelX').onclick = duelCancel;
+    return;
+  }
+
+  if(DUEL.status === 'playing'){
+    if(mode) mode.textContent = DUEL.mode === 'jump' ? '🏃 점프맵' : '🧠 메모리';
+    duelStake();
+    el.innerHTML = '<div class="duel-wrap"><div class="duel-stage" id="duelPlay"></div>' +
+      '<div class="duel-timer">' + esc(opName||'상대') + ' 님과 겨루는 중 · 먼저 끝내면 ' + fmtW(Number(DUEL.bet||0)*2) + '</div></div>';
+    if(DUEL.mode === 'jump') startJump($('duelPlay'), Number(DUEL.seed)||1);
+    else startMemory($('duelPlay'), Number(DUEL.seed)||1);
+    return;
+  }
+
+  if(DUEL.status === 'done'){
+    const won = DUEL.winner_lc === myLc();
+    if(mode) mode.textContent = won ? '이겼습니다' : '졌습니다';
+    el.innerHTML = '<div class="duel-wrap"><div class="duel-stage">' +
+      '<div style="font-size:34px">' + (won ? '🏆' : '💀') + '</div>' +
+      '<div style="font-size:17px;font-weight:900;margin:8px 0;color:' + (won?'var(--gold)':'#ff8a9c') + '">' +
+      (won ? fmtW(Number(DUEL.bet||0)*2) + ' 획득!' : esc(DUEL.winner||'상대') + ' 님이 먼저 끝냈습니다') + '</div>' +
+      (won ? '<div style="font-size:12px;color:var(--sub)">상금은 잠시 뒤 자동으로 들어옵니다</div>' : '') +
+      '</div><button class="big-btn" id="duelAgain">다시 매칭</button></div>';
+    $('duelAgain').onclick = ()=>{ DUEL = null; renderDuel(); };
+    if(won) setTimeout(claimMoney, 1500);
+    return;
+  }
+
+  if(mode) mode.textContent = '매칭이 취소되었습니다';
+  el.innerHTML = '<div class="duel-wrap"><div class="empty-msg">매칭이 취소되었습니다.</div>' +
+    '<button class="big-btn" id="duelAgain">다시 매칭</button></div>';
+  $('duelAgain').onclick = ()=>{ DUEL = null; renderDuel(); };
+}
+
+/* ── 🏃 점프맵 ────────────────────────────────────────
+   발판을 밟고 위로 올라가 깃발에 닿으면 끝입니다.
+   떨어지면 처음부터. 맵은 씨앗으로 만들어 둘이 똑같은 코스를 받습니다. */
+let jumpRAF = null, jumpKeys = {};
+function stopJump(){ if(jumpRAF) cancelAnimationFrame(jumpRAF); jumpRAF = null; jumpKeys = {}; }
+function startJump(box, seed){
+  stopJump();
+  const W = 330, H = 460, R = mulberry32(seed >>> 0);
+  // 발판 만들기 — 위로 갈수록 좁고 멀어집니다
+  const pads = [{x:0, y:H-20, w:W, h:14}];
+  let y = H - 80;
+  for(let i=0; i<11; i++){
+    const w = 92 - i*4.5;
+    const x = 12 + R()*(W - w - 24);
+    pads.push({x, y, w, h:12});
+    y -= 34 + R()*6;
+  }
+  const goal = {x: pads[pads.length-1].x + pads[pads.length-1].w/2, y: pads[pads.length-1].y - 26};
+  box.innerHTML = '<canvas id="jumpCv" width="' + W + '" height="' + H + '"></canvas>' +
+    '<div class="jump-keys"><button id="jL">◀</button><button id="jU">▲</button><button id="jR">▶</button></div>' +
+    '<div class="duel-timer">좌우로 움직이고 위로 점프 — 키보드 화살표도 됩니다</div>';
+  const cv = $('jumpCv'), cx = cv.getContext('2d');
+  const P = {x: W/2, y: H-40, vx:0, vy:0, w:15, h:19, on:false};
+  const hold = (id, k)=>{
+    const b = $(id);
+    const dn = e=>{ e.preventDefault(); jumpKeys[k]=true; };
+    const up = e=>{ e.preventDefault(); jumpKeys[k]=false; };
+    b.onpointerdown = dn; b.onpointerup = up; b.onpointerleave = up; b.onpointercancel = up;
+  };
+  hold('jL','l'); hold('jR','r'); hold('jU','u');
+  const kd = e=>{ if(e.key==='ArrowLeft')jumpKeys.l=1; if(e.key==='ArrowRight')jumpKeys.r=1;
+                  if(e.key==='ArrowUp'||e.key===' ')jumpKeys.u=1; };
+  const ku = e=>{ if(e.key==='ArrowLeft')jumpKeys.l=0; if(e.key==='ArrowRight')jumpKeys.r=0;
+                  if(e.key==='ArrowUp'||e.key===' ')jumpKeys.u=0; };
+  document.addEventListener('keydown', kd); document.addEventListener('keyup', ku);
+  jumpRAF = true;
+  let done = false;
+  const loop = ()=>{
+    if(!DUEL || DUEL.status !== 'playing' || !document.body.contains(cv)){
+      document.removeEventListener('keydown', kd); document.removeEventListener('keyup', ku);
+      stopJump(); return;
+    }
+    P.vx = (jumpKeys.r?1:0)*2.6 - (jumpKeys.l?1:0)*2.6;
+    if(jumpKeys.u && P.on){ P.vy = -8.4; P.on = false; }
+    P.vy = Math.min(12, P.vy + 0.44);
+    P.x = Math.max(0, Math.min(W-P.w, P.x + P.vx));
+    const ny = P.y + P.vy;
+    P.on = false;
+    for(const pd of pads){
+      if(P.vy >= 0 && P.x + P.w > pd.x && P.x < pd.x + pd.w &&
+         P.y + P.h <= pd.y + 2 && ny + P.h >= pd.y){
+        P.y = pd.y - P.h; P.vy = 0; P.on = true;
+      }
+    }
+    if(!P.on) P.y = ny;
+    if(P.y > H + 60){ P.x = W/2; P.y = H-40; P.vx = 0; P.vy = 0; }   // 떨어지면 처음부터
+
+    cx.clearRect(0,0,W,H);
+    cx.fillStyle = '#0d1524'; cx.fillRect(0,0,W,H);
+    cx.fillStyle = '#2a3c5c';
+    pads.forEach(pd=>{ cx.beginPath(); cx.roundRect(pd.x, pd.y, pd.w, pd.h, 5); cx.fill(); });
+    cx.font = '20px serif'; cx.fillText('🚩', goal.x - 10, goal.y + 6);
+    cx.fillStyle = '#22e6b4';
+    cx.beginPath(); cx.roundRect(P.x, P.y, P.w, P.h, 4); cx.fill();
+
+    if(!done && Math.abs(P.x + P.w/2 - goal.x) < 26 && Math.abs(P.y - goal.y) < 30){
+      done = true;
+      document.removeEventListener('keydown', kd); document.removeEventListener('keyup', ku);
+      stopJump(); toast('🚩 도착! 기록을 보냅니다'); duelFinish(); return;
+    }
+    jumpRAF = requestAnimationFrame(loop);
+  };
+  jumpRAF = requestAnimationFrame(loop);
+}
+
+/* ── 🧠 메모리 ────────────────────────────────────────
+   8쌍을 다 맞추면 끝입니다. 카드 배치는 씨앗으로 만들어 둘이 같습니다. */
+const MEM_FACES = ['🍎','🍇','🍑','🍋','🍓','🥝','🍒','🥑'];
+function startMemory(box, seed){
+  const R = mulberry32(seed >>> 0);
+  const deck = MEM_FACES.concat(MEM_FACES);
+  for(let i=deck.length-1; i>0; i--){                 // 씨앗으로 섞습니다
+    const j = Math.floor(R()*(i+1));
+    const t = deck[i]; deck[i] = deck[j]; deck[j] = t;
+  }
+  box.innerHTML = '<div class="mem-grid" id="memGrid"></div>' +
+    '<div class="duel-timer" id="memInfo">같은 그림 8쌍을 모두 찾으세요</div>';
+  const grid = $('memGrid');
+  grid.innerHTML = deck.map((f,i)=>'<div class="mem-card" data-mi="' + i + '"></div>').join('');
+  let open = [], got = 0, lock = false;
+  grid.querySelectorAll('[data-mi]').forEach(c=>{
+    c.onclick = ()=>{
+      if(lock || c.classList.contains('up') || c.classList.contains('got')) return;
+      const i = Number(c.dataset.mi);
+      c.textContent = deck[i]; c.classList.add('up');
+      open.push({i, el:c});
+      if(open.length < 2) return;
+      lock = true;
+      const [a,b] = open;
+      if(deck[a.i] === deck[b.i]){
+        setTimeout(()=>{
+          a.el.classList.add('got'); b.el.classList.add('got');
+          a.el.classList.remove('up'); b.el.classList.remove('up');
+          open = []; lock = false; got++;
+          $('memInfo').textContent = got + ' / 8 쌍';
+          if(got === 8){ toast('🧠 전부 맞췄습니다! 기록을 보냅니다'); duelFinish(); }
+        }, 260);
+      }else{
+        setTimeout(()=>{
+          a.el.textContent = ''; b.el.textContent = '';
+          a.el.classList.remove('up'); b.el.classList.remove('up');
+          open = []; lock = false;
+        }, 620);
+      }
+    };
+  });
+}
+
 /* ==================== 유저 (검색 / 친구 / 귓속말 / 송금) ====================
    아이디와 비밀번호는 서버에 올리지 않습니다. 계정은 브라우저 안에만 있고,
    서버에는 "누가 누구에게 무엇을 보냈는지"만 기록됩니다.
@@ -3847,6 +4159,16 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'5.0', date:'2026-09-23', title:'⚔️ 대결 — 둘이 붙는 도박',
+    items:[
+      ['new','경제 탭에 ⚔️ 대결이 생겼습니다. 같은 금액을 건 사람과 1:1로 붙습니다'],
+      ['new','매칭을 누르면 같은 금액을 건 사람을 찾습니다. 3분 안에 상대가 없으면 취소됩니다'],
+      ['new','상대를 만나면 둘이 모드를 고릅니다. 다르게 고르면 방을 연 사람 쪽으로 정해집니다'],
+      ['new','🏃 점프맵 — 발판을 밟고 깃발까지. 떨어지면 처음부터입니다. 좌우 버튼과 키보드 화살표 둘 다 됩니다'],
+      ['new','🧠 메모리 — 같은 그림 8쌍을 먼저 다 찾으면 승리입니다'],
+      ['chg','먼저 끝낸 사람이 판돈을 전부 가져갑니다. 두 사람 모두 같은 판을 받으니 운이 아니라 실력 싸움입니다'],
+      ['chg','판돈은 시작할 때 빠지고, 이기면 두 배로 돌아옵니다'],
+    ]},
   { v:'4.3.0', date:'2026-09-23', title:'광산 해외 진출 · 알림',
     items:[
       ['new','🇯🇵 일본 4광구 — 아시오 구리 · 카미오카 아연 · 이오지마 유황 · 미나미토리시마 해저 희토류'],
@@ -4844,7 +5166,7 @@ function askUnlock(key){
 const TAB_GROUPS = [
   { key:'stock', nm:'📈 주식',       tabs:[['kr','🇰🇷 국내주식'], ['us','🌎 해외주식']] },
   { key:'land',  nm:'🏞️ 자산',     tabs:[['land','🏞️ 부동산'], ['mine','⛏️ 광산']] },
-  { key:'econ',  nm:'💰 경제',       tabs:[['bank','🏦 은행/대출'], ['casino','🎰 카지노'], ['news','📰 뉴스']] },
+  { key:'econ',  nm:'💰 경제',       tabs:[['bank','🏦 은행/대출'], ['casino','🎰 카지노'], ['duel','⚔️ 대결'], ['news','📰 뉴스']] },
   { key:'my',    nm:'👤 마이페이지',  tabs:[['users','👥 유저'], ['community','💬 커뮤니티'], ['rank','🏆 랭킹'], ['pf','💼 내 포트폴리오']] },
   { key:'info',  nm:'📋 패치노트',    tabs:[['patch','📋 패치노트']] },
 ];
@@ -4879,6 +5201,7 @@ function switchTab(t){
   if(t==='rank') renderRank();
   if(t==='land') renderLand();
   if(t==='mine') renderMine();
+  if(t==='duel') renderDuel();
   if(t==='users') renderUsers();
   if(t==='patch'){ renderPatch(); const v=$('patchVer'); if(v) v.textContent='현재 v'+APP_VERSION; }
 }

@@ -1218,6 +1218,8 @@ async function doSignup(){
   const name = ($('suUser').value||'').trim();
   const pw = $('suPw').value||'', pw2 = $('suPw2').value||'';
   if(name.length < 2) return toast('아이디는 2자 이상이어야 합니다');
+  if(name.length > 12) return toast('아이디는 12자까지입니다');
+  if(pw.length > 60) return toast('비밀번호가 너무 깁니다');
   if(/[<>&"'\s]/.test(name)) return toast('아이디에 공백이나 특수문자는 쓸 수 없습니다');
   if(pw.length < 4) return toast('비밀번호는 4자 이상이어야 합니다');
   if(pw !== pw2) return toast('비밀번호가 서로 다릅니다');
@@ -3693,7 +3695,9 @@ function confirmDelete(slot){
       <b style="color:var(--txt)">${esc(slots[slot].name)}</b> 님의 기록(${fmtW(netWorthOf(slots[slot]))})이 영구 삭제됩니다.<br>되돌릴 수 없습니다.</p>
     <button class="big-btn" style="background:linear-gradient(135deg,#ff4d5e,#b8102b);color:#fff" id="delYes">삭제한다</button>
     <button class="ghost-btn" onclick="closeModal()">취소</button>`);
-  $('delYes').onclick=()=>{ const s=loadSlots(); s[slot]=null; saveSlots(s); closeModal(); renderSlots(); toast('슬롯을 비웠습니다'); };
+  $('delYes').onclick=()=>{ const s=loadSlots(); s[slot]=null; saveSlots(s);
+    if(G && G.slot === slot) G = null;      // 지운 슬롯을 계속 들고 있으면 다음 저장 때 되살아납니다
+    closeModal(); renderSlots(); toast('슬롯을 비웠습니다'); };
 }
 
 /* ==================== 게임 시작/종료 ==================== */
@@ -3746,6 +3750,11 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.9', date:'2026-09-23', title:'버그 수정 — 지운 캐릭터가 되살아나던 문제',
+    items:[
+      ['fix','플레이 중인 슬롯을 지워도 그 기록을 계속 들고 있어, 다음 자동저장 때 되살아날 수 있었습니다'],
+      ['chg','아이디와 비밀번호 길이를 화면뿐 아니라 코드에서도 확인합니다'],
+    ]},
   { v:'3.8', date:'2026-09-23', title:'버그 수정 — 없는 돈이 급여로 나가던 문제',
     items:[
       ['fix','사장이 임금을 낼 돈이 없어도 유저 직원·광부에게는 급여가 이미 전송되고 있었습니다. 사장 잔고에서는 안 빠지고 직원에게만 들어가, 돈이 무에서 생겨났습니다'],

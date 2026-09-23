@@ -1059,10 +1059,21 @@ function saveGame(silent){
     return;
   }
   // 어떤 경로로든 숫자가 망가지면 세이브가 통째로 오염되므로 여기서 막는다
-  if(!Number.isFinite(G.cash) || !Number.isFinite(G.debt)){
-    G.cash = Number.isFinite(G.cash) ? G.cash : 0;
-    G.debt = Number.isFinite(G.debt) ? G.debt : 0;
+  const badCash = !Number.isFinite(G.cash) || G.cash < 0;
+  const badDebt = !Number.isFinite(G.debt) || G.debt < 0;
+  if(badCash || badDebt){
+    G.cash = Number.isFinite(G.cash) ? Math.max(0, G.cash) : 0;
+    G.debt = Number.isFinite(G.debt) ? Math.max(0, G.debt) : 0;
     toast('⚠️ 잘못된 금액이 감지되어 보정했습니다');
+  }
+  // 보유 주식에 이상한 줄이 섞이면 순자산이 통째로 NaN 이 됩니다
+  for(const id in G.holdings){
+    const h = G.holdings[id];
+    const qty = h ? Math.floor(Number(h.qty)) : 0;
+    if(!h || !Number.isFinite(qty) || qty <= 0){ delete G.holdings[id]; continue; }
+    h.qty = qty;
+    if(!Number.isFinite(Number(h.avg))) h.avg = 0;
+    if(h.krw != null && !Number.isFinite(Number(h.krw))) h.krw = 0;
   }
   const slots = loadSlots();
   const snap = Object.assign({}, G);
@@ -3596,15 +3607,20 @@ create policy "wipe" on messages for delete using (true);</div>
 
 /* ==================== 슬롯 화면 ==================== */
 function totalAssetOf(g){
-  let v = g.cash;
+  let v = Number(g.cash);
+  if(!Number.isFinite(v)) v = 0;
   const list = ((MARKET && MARKET.stocks.length) ? MARKET.stocks : (g.stocks||[])).concat(CORP);
-  const fx = (MARKET ? MARKET.fx : g.fx) || 1380;
+  const fx = Number((MARKET ? MARKET.fx : g.fx)) || 1380;
   for(const id in g.holdings){
     const h = g.holdings[id]; const s = list.find(x=>x.id===id);
-    if(!s || !h.qty || s.dead) continue;
-    v += s.mkt==='US' ? h.qty*s.price*fx : h.qty*s.price;
+    if(!s || !h || s.dead) continue;
+    const qty = Math.floor(Number(h.qty));
+    const px = Number(s.price);
+    if(!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(px)) continue;   // 망가진 줄은 건너뜁니다
+    const add = s.mkt==='US' ? qty*px*fx : qty*px;
+    if(Number.isFinite(add)) v += add;
   }
-  return v;
+  return Number.isFinite(v) ? v : 0;
 }
 function netWorthOf(g){ return totalAssetOf(g) - (g.debt||0); }   // 유동 순자산 — 대출·마진콜 판단용
 /* 화면에 보여주는 순자산. 땅·건물·광산까지 합쳐 랭킹과 같은 값이 되게 합니다.
@@ -3717,6 +3733,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.6', date:'2026-09-23', title:'버그 수정 — 망가진 세이브가 순자산을 통째로 날리던 문제',
+    items:[
+      ['fix','보유 주식 한 줄만 망가져도 순자산이 통째로 계산 불능이 되어, 그 값이 그대로 랭킹에 올라갔습니다'],
+      ['fix','저장할 때 현금·부채가 음수면 그냥 통과했습니다. 이제 0으로 바로잡습니다'],
+      ['fix','수량이 이상한 보유 줄은 저장할 때 정리합니다'],
+      ['fix','기록이 없는 종목의 그래프를 그리려다 화면이 멈출 수 있었습니다'],
+    ]},
   { v:'3.5', date:'2026-09-23', title:'버그 수정 — 회사 주가가 사람마다 달랐습니다',
     items:[
       ['fix','회사 주가가 사장과 다른 사람에게 다르게 보였습니다. 유저 직원 수는 사장만 아는 정보인데 주가 계산에 들어가, 같은 종목을 서로 다른 값에 사고팔고 있었습니다'],
@@ -4475,7 +4498,9 @@ function renderAll(){
   if(openStockId) refreshTradeModal();
 }
 function sparkSVG(hist, up){
-  const h = hist.slice(-46); if(h.length<2) return '';
+  if(!Array.isArray(hist)) return '';                       // 기록이 아직 없는 종목도 있습니다
+  const h = hist.slice(-46).filter(v=>Number.isFinite(Number(v))).map(Number);
+  if(h.length<2) return '';
   const mn=Math.min(...h), mx=Math.max(...h), rg=(mx-mn)||1;
   const pts = h.map((v,i)=>`${(i/(h.length-1)*100).toFixed(2)},${(34-(v-mn)/rg*30).toFixed(2)}`).join(' ');
   const c = up?'#ff4d5e':'#4d8cff';

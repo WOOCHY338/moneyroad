@@ -696,7 +696,7 @@ tr:last-child td{border-bottom:none}
       <div class="panel">
         <h3>⛏️ 광산 <small id="mineMode">-</small></h3>
         <div class="warnbox" id="mineNote" style="margin:0 0 12px">
-          전국 6개 광구뿐입니다. 광부를 고용해 광물을 캐고, 시세가 오를 때 팔아 남깁니다.<br>
+          한국 6곳 · 일본 4곳 · 중국 4곳, 모두 14개 광구뿐입니다. 광부를 고용해 광물을 캐고, 시세가 오를 때 팔아 남깁니다.<br>
           <b>갱도를 파 내려갈수록 많이 캐지만 붕괴 위험도 같이 오릅니다.</b>
         </div>
         <div class="oreboard" id="oreBoard"></div>
@@ -1316,7 +1316,7 @@ function bootAuth(){
   maybeShowPatch();
   ensureMarket();
   setInterval(()=>{ if(!G){ ensureMarket(); } const c=$('mktClock'); if(c) c.textContent=sessionClock(); }, 1000);
-  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); startCollect(); startMinePoll(); loadAdminRemote(); loadCommRemote();
+  initAds(); initNotice(); startChatPoll(); startUsersPoll(); startLandPoll(); startCollect(); startMinePoll(); startNotifyPoll(); loadAdminRemote(); loadCommRemote();
   try{
     const a = JSON.parse(lsGet(AUTH_KEY));
     if(a && a.mode){
@@ -1952,7 +1952,7 @@ function mineRow(m){
   const me = myLc();
   const mine = !!me && m.owner_lc === me;
   const online = srvMode && !!SRV_TOKEN;
-  const canBuy = isUnlocked('mine') && me && online && m.for_sale && !mine && G;
+  const canBuy = isUnlocked('mine') && me && online && m.for_sale && !mine && G && landOpen();
   const down = mineDown(m);
   let acts = '';
   if(mine){
@@ -2080,6 +2080,7 @@ async function fillHirePick(boxId, inputId){
 
 /* ── 광구 사고팔기 */
 function buyMine(m){
+  if(!landOpen()) return toast('낮 12시 10분부터 살 수 있습니다 · 남은 시간 ' + landOpenLeft());
   if(!isUnlocked('mine')) return toast('광산을 먼저 해금해주세요');
   if(!srvMode || !SRV_TOKEN) return toast('서버 계정으로 로그인해야 광구를 살 수 있습니다');
   if(!G) return toast('게임을 시작한 뒤에 살 수 있습니다');
@@ -2694,6 +2695,58 @@ async function renderUsers(){
     : (myLc() ? '아이디로 다른 사용자를 찾을 수 있습니다' : '게스트는 검색만 가능합니다');
   await loadFriends();
   renderFriends(); renderSearch(lastResults); loadWhispers(true); loadMoneyLog();
+}
+/* ── 알림 ────────────────────────────────────────────
+   유저 탭을 보고 있지 않아도 귓속말과 친구 추가를 알려줍니다.
+   어디까지 봤는지는 이 브라우저에 적어 두어, 잠깐 나갔다 와도 놓친 것만 알립니다. */
+const NOTI_KEY = ()=> 'MONEYROAD_NOTI:' + myLc();
+let notiTimer = null, seenWhisperId = 0, seenFriends = null;
+function loadNoti(){
+  seenWhisperId = 0; seenFriends = null;
+  try{
+    const o = JSON.parse(lsGet(NOTI_KEY()));
+    if(o && typeof o === 'object'){
+      seenWhisperId = Number(o.w) || 0;
+      if(Array.isArray(o.f)) seenFriends = o.f;
+    }
+  }catch(e){}
+}
+function saveNoti(){
+  try{ lsSet(NOTI_KEY(), JSON.stringify({w:seenWhisperId, f:seenFriends || []})); }catch(e){}
+}
+async function pollNotify(){
+  if(!usersReady() || !G) return;
+  const onUsers = $('tab-users') && $('tab-users').classList.contains('on');
+  try{
+    const w = await sbGet('whispers?select=id,from_name&to_lc=eq.' +
+      encodeURIComponent(myLc()) + '&order=id.desc&limit=10');
+    if(Array.isArray(w) && w.length){
+      const top = Number(w[0].id) || 0;
+      if(seenWhisperId > 0 && top > seenWhisperId && !onUsers){
+        const who = [...new Set(w.filter(x=>Number(x.id) > seenWhisperId).map(x=>x.from_name))];
+        toast('💌 ' + who.slice(0,2).join(', ') + ' 님에게서 귓속말이 왔습니다' +
+              (who.length > 2 ? ' 외 ' + (who.length-2) + '명' : ''));
+      }
+      if(top > seenWhisperId){ seenWhisperId = top; saveNoti(); }
+    }
+  }catch(e){}
+  try{
+    const f = await sbGet('friends?select=user_lc&friend_lc=eq.' + encodeURIComponent(myLc()));
+    if(Array.isArray(f)){
+      const cur = f.map(x=>x.user_lc);
+      if(seenFriends){
+        const added = cur.filter(x=>!seenFriends.includes(x));
+        added.slice(0,2).forEach(u=> toast('⭐ ' + u + ' 님이 나를 친구로 추가했습니다'));
+      }
+      const changed = !seenFriends || cur.length !== seenFriends.length ||
+                      cur.some(x=>!seenFriends.includes(x));
+      if(changed){ seenFriends = cur; saveNoti(); }
+    }
+  }catch(e){}
+}
+function startNotifyPoll(){
+  if(notiTimer) clearInterval(notiTimer);
+  notiTimer = setInterval(pollNotify, 20000);
 }
 function startUsersPoll(){
   if(usersTimer) clearInterval(usersTimer);
@@ -3767,7 +3820,7 @@ function startGame(slot){
   claimMorningBonus(); claimLaunchBonus();
   claimMoney(); collectBuildings();
   showScreen('game');
-  claimTab();
+  claimTab(); loadNoti(); pollNotify();
   renderNav('kr'); switchTab('kr'); renderAll(); renderNews(); updateTicker();
   setSpeed();
 }
@@ -3794,6 +3847,16 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'4.3.0', date:'2026-09-23', title:'광산 해외 진출 · 알림',
+    items:[
+      ['new','🇯🇵 일본 4광구 — 아시오 구리 · 카미오카 아연 · 이오지마 유황 · 미나미토리시마 해저 희토류'],
+      ['new','🇨🇳 중국 4광구 — 바이윈어보 네오디뮴 · 산시 코크스탄 · 장시 텅스텐 · 윈난 주석'],
+      ['del','모든 광구를 초기화하고, 광구값 · 굴착비 · 안전설비 · 광부 고용비 · 창고 광물을 전액 돌려드렸습니다'],
+      ['chg','광산도 부동산과 같이 오늘 낮 12시 10분부터 살 수 있습니다'],
+      ['new','귓속말이 오면 어느 화면에 있든 알려드립니다. 유저 탭을 보고 있을 때는 알리지 않습니다'],
+      ['new','누가 나를 친구로 추가하면 알려드립니다'],
+      ['chg','속보 팝업이 6초에서 3초 만에 사라집니다'],
+    ]},
   { v:'4.2.0', date:'2026-09-23', title:'중국 진출 · 운영자 개편 · 공지 서버화',
     items:[
       ['new','🇨🇳 중국 8필지가 열렸습니다 — 궈마오 · 루자쭈이 · 왕푸징 · 난징둥루 · 중관춘 · 선전만 · 광저우 톈허청 · 청두 춘시루'],
@@ -4569,7 +4632,7 @@ function showFlash(n){
   f.style.background = n.good ? 'linear-gradient(135deg,#ff2d4d,#b8102b)' : 'linear-gradient(135deg,#2a5fd6,#12307a)';
   f.innerHTML = `<small>${n.mega?'🚨 초대형 속보':'속보'} · ${esc(n.by)} 생성</small>${esc(n.head)}`;
   f.classList.add('show');
-  clearTimeout(showFlash.t); showFlash.t=setTimeout(()=>f.classList.remove('show'), 6000);
+  clearTimeout(showFlash.t); showFlash.t=setTimeout(()=>f.classList.remove('show'), 3000);
 }
 function updateTicker(){
   const t = ((MARKET&&MARKET.news)||[]).slice(0,12).map(n=>`<span>${n.good?'🔺':'🔻'} ${esc(n.head)}</span>`).join('');

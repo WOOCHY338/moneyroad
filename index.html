@@ -2733,8 +2733,19 @@ function myLands(){ const me = myLc(); return me ? LANDS.filter(l=>l.owner_lc ==
 const CORP_SHARES = 10000;
 let CORP = [];
 function hashStr(x){ let h=2166136261; for(let i=0;i<x.length;i++){ h^=x.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+/* 주가에 쓰는 실적 — 누구나 볼 수 있는 값만 씁니다.
+   유저 직원 수는 사장만 아는 정보라 여기서 빼야 모두가 같은 주가를 봅니다. */
+function bldIncomePublic(l){
+  if(l.bld_type !== 'corp' || !(l.bld_level > 0)) return 0;
+  const base = Number(l.base_price) * BLD.corp.yield * (LV_MULT[l.bld_level] || 1);
+  const plvMult = 1 + ((l.bld_plv||1) - 1) * 0.40;
+  const mom = sectorMomentum(l.bld_sector || '반도체');
+  const staff = (l.bld_emp || 0) * 0.04;
+  const rev = base * plvMult * (1 + staff) * Math.max(0.35, 1 + mom * 0.8);
+  return Math.round(rev - (l.bld_emp || 0) * npcWage(l));
+}
 function corpPrice(l){
-  const val = Number(l.base_price) * 0.6 + Math.max(0, bldIncome(l)) * 200;
+  const val = Number(l.base_price) * 0.6 + Math.max(0, bldIncomePublic(l)) * 200;
   const p0 = Math.max(100, val / CORP_SHARES);
   const step = MARKET ? Math.floor(MARKET.t / 10) : 0;          // 10초마다 갱신
   const sess = MARKET ? MARKET.session : 0;
@@ -3133,7 +3144,7 @@ async function endJob(id, msg){
 /* 재고 발주 */
 function openOrder(l){
   const uc = unitCostOf(l), d = demandOf(l), st = l.bld_stock||0;
-  const max = Math.min(999 - st, Math.floor(G.cash / uc));
+  const max = Math.min(9999 - st, Math.floor(G.cash / uc));
   openModal('<h2>📦 재고 발주</h2>' +
     '<div class="kv"><span>현재 재고</span><b>' + st.toLocaleString() + '개</b></div>' +
     '<div class="kv"><span>3분 수요</span><b>' + d.toLocaleString() + '개</b></div>' +
@@ -3142,7 +3153,7 @@ function openOrder(l){
     '<input class="auth-in" id="ordQ" type="number" min="1" max="' + Math.max(1,max) + '" value="' + Math.max(1, Math.min(max, d*10)) + '" style="margin-top:12px" aria-label="발주 수량">' +
     '<div id="ordCost" style="font-size:12.5px;color:var(--sub);margin-bottom:10px"></div>' +
     '<button class="big-btn" id="ordGo">발주하기</button>' +
-    '<div class="warnbox" style="margin-top:12px">재고가 떨어지면 매출이 0이 됩니다. 창고는 999개까지 찹니다.</div>' +
+    '<div class="warnbox" style="margin-top:12px">재고가 떨어지면 매출이 0이 됩니다. 창고는 9,999개까지 찹니다.</div>' +
     '<button class="ghost-btn" onclick="closeModal()">닫기</button>');
   const upd = ()=>{
     const q = Math.max(0, Math.floor(Number($('ordQ').value)||0));
@@ -3706,6 +3717,13 @@ $('btnSave').onclick=()=>saveGame(false);
 /* ==================== 패치노트 ====================
    맨 위가 최신입니다. 버전을 올리면 그 버전을 아직 못 본 사람에게 자동으로 뜹니다. */
 const PATCH_NOTES = [
+  { v:'3.5', date:'2026-09-23', title:'버그 수정 — 회사 주가가 사람마다 달랐습니다',
+    items:[
+      ['fix','회사 주가가 사장과 다른 사람에게 다르게 보였습니다. 유저 직원 수는 사장만 아는 정보인데 주가 계산에 들어가, 같은 종목을 서로 다른 값에 사고팔고 있었습니다'],
+      ['chg','이제 주가는 누구나 볼 수 있는 값(땅값 · 건물 등급 · 제품 레벨 · NPC 직원 · 업종 기세)만으로 계산됩니다'],
+      ['fix','서버가 NPC 직원을 999명까지 받아주고 있었습니다. 화면에서만 20명으로 막혀 있어 방어가 아니었습니다. 서버에서도 20명으로 막습니다'],
+      ['chg','가게 창고를 999개에서 9,999개로 늘렸습니다. 수요가 3배가 되면서 999개는 세 번 정산이면 바닥났습니다'],
+    ]},
   { v:'3.4', date:'2026-09-23', title:'버그 수정 — 사라진 회사 주식 · 보안',
     items:[
       ['fix','사장이 회사를 헐거나 땅을 팔면 그 주식이 목록에서만 사라지고 계좌에는 남았습니다. 팔 수도 없고 자산에도 안 잡히는 좀비가 되어 돈이 그냥 증발했습니다'],
